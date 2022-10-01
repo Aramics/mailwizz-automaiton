@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html x-data :class="{dark: $store.darkMode.on}">
+
+<head>
+    <!-- Primary Meta Tags -->
+    <title>Flowy - The simple flowchart engine</title>
+    <meta name="title" content="Flowy - The simple flowchart engine">
+    <meta name="description"
+        content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://alyssax.com/x/flowy">
+    <meta property="og:title" content="Flowy - The simple flowchart engine">
+    <meta property="og:description"
+        content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
+    <meta property="og:image" content="https://alyssax.com/x/assets/images/meta.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://alyssax.com/x/flowy">
+    <meta property="twitter:site" content="alyssaxuu">
+    <meta property="twitter:title" content="Flowy - The simple flowchart engine">
+    <meta property="twitter:description"
+        content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
+    <meta property="twitter:image" content="https://alyssax.com/x/assets/images/meta.png">
+    <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+
+
+    <!-- css style sheets -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
+    <link href='assets/css/styles.css' rel='stylesheet' type='text/css'>
+    <link href='assets/css/flowy.min.css' rel='stylesheet' type='text/css'>
+
+
+    <!-- libraries -->
+    <script src="assets/js/alpine.min.js" defer></script>
+    <script src="assets/js/flowy.min.js"></script>
+
+
+    <!-- internal -->
+    <script>
+        const AUTOMATION_WEBHOOK_URL = 'https://mailwizzz.com/automations/2233/webhook/start';
+        const INTERVALS = [
+            { key: 's', label: 'Second(s)' },
+            { key: 'h', label: 'Minute(s)' },
+            { key: 'd', label: 'Day(s)' },
+            { key: 'w', label: 'Week(s)' },
+            { key: 'm', label: 'Month(s)' },
+            { key: 'y', label: 'Year(s)' }
+        ];
+        const OPERATORS = [
+            { key: '>', label: 'Greater than' },
+            { key: '<', label: 'Less than' },
+            { key: '=', label: 'Equals' }
+        ];
+    </script>
+    <script src="assets/js/blocks.js"></script>
+    <script src="assets/js/main.js"></script>
+    <script src="assets/js/store.js"></script>
+
+
+</head>
+
+<body :class="{'left-card-closed': !$store.navs.leftnav, 'preview-mode': $store.navs.preview}">
+    <header id="navigation" class="flex">
+        <div id="leftside">
+            <div id="details">
+                <a href id="back"><img src="assets/images/arrow.svg"></a>
+                <div id="names">
+                    <p id="title" x-text="$store.automation.title"></p>
+                    <p id="subtitle">Marketing automation</p>
+                </div>
+            </div>
+        </div>
+        <div id="buttonsright" class="flex">
+            <button @click="$store.darkMode.toggle()" class="theme-switch">
+                <img :src="$store.darkMode.on ? 'assets/images/light-mode.svg':'assets/images/dark-mode.svg'"
+                    alt="Dark mode" title="Dark mode" />
+            </button>
+            <button id="preview" class="btn btn-default">
+                <img :src="!$store.navs.preview ? 'assets/images/eye.svg':'assets/images/eyeblue.svg'"
+                    alt="Toggle preview" title="Toggle preview" />
+            </button>
+
+            <button x-show="!$store.navs.preview" id="edit" class="btn btn-default">Edit</button>
+            <button x-show="!$store.navs.preview" id="save" class="btn btn-primary">Save</button>
+        </div>
+        </div>
+    </header>
+
+    <main class="wrapper">
+        <div id="left-card">
+            <div id="close-left-card">
+                <img src="assets/images/closeleft.svg">
+            </div>
+
+            <div class="left-card-body" x-show="$store.navs.leftnav">
+                <p class="title">Blocks</p>
+                <div id="search">
+                    <img src="assets/images/search.svg">
+                    <input type="text" placeholder="Search blocks" x-model.debounce.300ms="$store.blocklist.search">
+                </div>
+
+
+                <div class="nav">
+                    <template x-for="(item,index) in $store.blocklist.getItems()">
+                        <div x-bind:id="item.key" class="side"
+                            :class="$store.blocklist.current == item.key ? 'nav-active':'nav-disabled'"
+                            x-text="item.title" @click="$store.blocklist.setCurrent(item.key)">
+                        </div>
+                    </template>
+                </div>
+
+
+                <!-- Block list -->
+                <div id="blocklist">
+                    <template x-for="item in $store.blocklist.getItems()">
+                        <div x-show="item.key == $store.blocklist.current" :id="item.key+'-blocklist'">
+
+                            <template x-for="blockItem in item.blocks">
+
+                                <div class="blockelem create-flowy noselect" x-bind:x-data="$store.blocklist.stringify"
+                                    x-bind:class="`${blockItem.key} ${blockItem.group ?? item.key} ${blockItem.shape ?? ''}`">
+
+                                    <input type="hidden" name='blockelemtype' class="blockelemtype"
+                                        x-bind:value="blockItem.key">
+                                    <input type="hidden" name='blockelemgroup' class="blockelemgroup"
+                                        x-bind:value="blockItem.group">
+
+                                    <div class="grabme">
+                                        <img src="assets/images/grabme.svg">
+                                    </div>
+
+                                    <div class="block-content">
+                                        <div class="block-icon">
+                                            <span></span>
+                                        </div>
+                                        <div class="block-text">
+                                            <p class="block-title" x-text="blockItem.title"></p>
+                                            <p class="block-desc" x-text="blockItem.description"></p>
+                                        </div>
+                                    </div>
+
+                                    <div class="block-canvas-content">
+                                        <div class="block-canvas-left">
+                                            <div class="block-icon">
+                                                <span></span>
+                                            </div>
+                                            <p class="block-canvas-name" x-text="blockItem.title"></p>
+                                        </div>
+                                        <div class='block-canvas-right'><img src="assets/images/more.svg"></div>
+                                        <div class='block-canvas-div'></div>
+                                        <div class='block-canvas-info'>...</div>
+                                    </div>
+
+                                </div>
+
+                                <!--<div x-html="getBlockHtml(blockItem,item.key)"></div>-->
+                            </template>
+
+                        </div>
+                    </template>
+                    <div x-show="!$store.blocklist.getItems().length" class="empty-search">
+                        No result found for <em x-text="$store.blocklist.search"></em>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="canvas" x-ignore>
+        </div>
+
+        <!-- Block contents -->
+        <div id="right-card" class="expanded flex flex-col">
+
+            <div class="right-card-header">
+                <div class="flex">
+                    <p class="title">Properties</p>
+                    <div id="close">
+                        <img src="assets/images/close.svg">
+                    </div>
+
+                </div>
+                <div class="divider"></div>
+            </div>
+
+            <div class="right-card-body">
+
+                <!-- automation property-->
+                <div id="automation-ppt" x-show="!$store.canvas.selectedBlock">
+                    <div class="nav flex">
+                        <div class="nav-active">Settings</div>
+                        <div>Insight</div>
+                        <div>Statistic</div>
+                    </div>
+                    <div id="proplist">
+                        <p class="input-label">Name</p>
+                        <input name="title" type="text" x-model="$store.automation.title" />
+
+                    </div>
+                </div>
+
+                <div x-show="$store.canvas.selectedBlock">
+
+                    <h3 x-text="$store.canvas.selectedBlock?.title"></h3>
+
+                    <!-- list component-->
+                    <template x-component="list">
+                        <div x-data="{ ...$el.parentElement.props }">
+                            <label x-text="label"></label>
+                            <select :name="name" onchange="onListHasChange(this)" data-onmanualupdate="onListHasChange">
+                                <template x-for="item in items">
+                                    <option :value="item.key" x-text="item.label" x-bind:title="item.label"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </template>
+
+                    <!-- mail list component-->
+                    <template x-component="mail-list">
+                        <x-list x-data="{ ...MailListComponent(), ...$el.parentElement.props }"></x-list>
+                    </template>
+
+                    <!-- campaign list component -->
+                    <template x-component="campaign-list">
+                        <x-list x-data="{ ...CampaignListComponent(), ...$el.parentElement.props }"></x-list>
+                    </template>
+
+                    <!-- url list component -->
+                    <template x-component="url-list">
+                        <x-list x-data="{ ...UrlListComponent(), ...$el.parentElement.props }"></x-list>
+                    </template>
+
+                    <!-- interval component -->
+                    <template x-component="interval">
+                        <div class="flex" x-data="{ ...{intervals: INTERVALS, label:''}, ...$el.parentElement.props }">
+
+                            <label>
+                                <span x-text="label"></span>
+                                <input type="number" step="1.0" :name="interval_name" min="1" value="1" />
+                            </label>
+
+                            <select :name="unit_name">
+                                <template x-for="item in intervals">
+                                    <option :value="item.key" x-text="item.label" x-bind:title="item.label"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </template>
+
+                    <!-- arithmetic component -->
+                    <template x-component="operators">
+                        <div x-data="{...{operators: OPERATORS}, ...$el.parentElement.props}">
+                            <select :name="name">
+                                <template x-for="item in operators">
+                                    <option :value="item.key" x-text="item.label" x-bind:title="item.label"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </template>
+
+                    <!-- input component -->
+                    <template x-component="input">
+                        <div x-data="{ 
+                                ...{type: 'text',label: '',value:'', disabled: false, readonly:false}, 
+                                ...$el.parentElement.props 
+                            }">
+                            <label>
+                                <span x-text="label"></span>
+                                <input :type="type" :value="value" x-bind:title="value" :name="name"
+                                    :disabled="disabled" :readonly="readonly" />
+                            </label>
+                        </div>
+                    </template>
+
+
+                    <!-- input repeat component -->
+                    <template x-component="input-pair-repeat">
+                        <div class="pairs-wrapper" x-data="{ ...InputPairRepeat(), ...$el.parentElement.props}">
+
+                            <div class="mt-10 form-group">
+                                <label x-text="label"></label>
+                                <p class="small" x-html="help"></p>
+                            </div>
+
+                            <template id="inputReps">
+                                <div class="flex mt-10">
+                                    <input type="text" value="" name="fields[]" placeholder="key" data-exclude />
+                                    <input type="text" value="" name="values[]" placeholder="value" data-exclude />
+                                    <button class="btn btn-danger remove-pair" @click="pairRemove">-</button>
+                                </div>
+                            </template>
+
+                            <div class="pairs"></div>
+
+                            <div class="flex-center mt-10">
+                                <button class="btn btn-primary mt-10 add-pair" @click="pairAdd">+</button>
+                            </div>
+                        </div>
+                    </template>
+
+
+                    <!-- render all dynamic block components -->
+                    <div id="components"></div>
+                </div>
+            </div>
+
+            <div class="right-card-footer">
+                <div class="divider"></div>
+                <button id="removeblocks" type="button" class="btn btn-danger">
+                    <div>Delete all blocks</div>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+</body>
+
+</html>
