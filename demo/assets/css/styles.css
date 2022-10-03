@@ -126,7 +126,7 @@ main.wrapper {
     height: calc(100vh - var(--nav-height));
     width: 311px;
     background-color: var(--neutral);
-    right: -150px;
+    right: -100%;
     opacity: 0;
     z-index: 2;
     box-shadow: -4px 0px 40px rgba(26, 26, 73, 0);
@@ -171,8 +171,12 @@ main.wrapper {
     text-align: center;
     display: inline-block;
     vertical-align: top;
-    margin-top: 12px;
     margin-right: 10px
+}
+
+#details {
+    display: flex;
+    align-items: center;
 }
 
 .dark #back {
@@ -223,6 +227,7 @@ button,
 
 .btn {
     display: flex;
+    width: 100%;
     justify-content: center;
     padding: 0 20px;
     font-family: Roboto;
@@ -532,6 +537,10 @@ select {
     margin: 20px 0px;
 }
 
+.spacer {
+    margin: 20px 0px;
+}
+
 
 .noselect {
     -webkit-touch-callout: none;
@@ -686,6 +695,51 @@ select {
 #components>div.active select {
     margin-top: 10px;
 }
+
+
+/*////////////////////////////////////Mobile screen/////////////////////////////*/
+
+@media only screen and (max-width: 480px) {
+
+    .btn {
+        padding: 0px 12px;
+    }
+
+    #right-card.expanded {
+        width: calc(100% - 40px);
+        padding: 20px;
+    }
+
+    #left-card {
+        width: 30%;
+    }
+
+    .nav {
+        flex-wrap: wrap;
+    }
+
+    .nav>div {
+        width: auto;
+        height: 30px;
+        line-height: 30px;
+    }
+
+    #canvas {
+        width: 70%;
+        left: auto;
+        right: 0;
+    }
+
+    .left-card-closed #canvas {
+        left: 20%;
+    }
+
+    .preview-mode #canvas {
+        width: 100%;
+        left: 0%;
+    }
+}
+
 
 /*////////////////////////////////////Flowchart shapes/////////////////////////////*/
 
