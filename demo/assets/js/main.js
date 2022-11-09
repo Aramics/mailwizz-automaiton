@@ -3,7 +3,8 @@ document.addEventListener( "DOMContentLoaded", function () {
     let draggingBlock;
     let canvas = document.getElementById( "canvas" );
     const canvasStore = Alpine.store( 'canvas' );
-
+    const TYPE_TRIGGERS = "triggers";
+    const TYPE_LOGIC = "logic"
     ///////////////////////Flowy Callbacks///////////////////////
     /**
      * Function that gets triggered when a block snaps with another one, i.e new block addition
@@ -14,6 +15,10 @@ document.addEventListener( "DOMContentLoaded", function () {
      */
     function onSnap ( block, first, parent ) {
 
+        if ( !validateBlock( block, first, parent ) )
+            return false;
+
+        console.log( { block, first, parent } )
         if ( document.querySelector( '.left-card-closed' ) ) {
             console.log( 'returning false' )
             return false;
@@ -35,7 +40,7 @@ document.addEventListener( "DOMContentLoaded", function () {
      * @param {object} block 
      */
     function onDrag ( block ) {
-
+        console.log( "draging" )
         block.classList.add( "block-disabled" );
         draggingBlock = block;
         closeRightCard();
@@ -58,11 +63,93 @@ document.addEventListener( "DOMContentLoaded", function () {
     }
 
     function onRearrange ( block, parent ) {
+        console.log( "REARRANGE" )
         // When a block is rearranged
         //return true;
     }
 
 
+    //block validation rules
+    function validateBlock ( block, first, parent ) {
+
+        const blockGroup = block.querySelector( '[name="blockelemgroup"]' ).value;
+        const blockType = block.querySelector( '[name="blockelemtype"]' ).value;
+
+        if ( !parent ) {
+
+            //only allow triggers as first blocks
+            if ( blockGroup != TYPE_TRIGGERS ) {
+
+                setTimeout( () => {
+                    flowy.deleteBlocks();
+                }, 0 );
+
+                notify( "Only triggers can used as the first block." );
+
+                return false;
+            }
+        }
+
+
+        if ( parent ) {
+
+            const parentGroup = parent.querySelector( '[name="blockelemgroup"]' ).value;
+            const parentType = parent.querySelector( '[name="blockelemtype"]' ).value;
+
+            if ( parentType == blockType ) {
+
+                notify( "Cant have same block as a direct child" );
+                return false;
+            }
+
+            if ( blockGroup == TYPE_TRIGGERS ) { //only on trigger on the canvas
+                notify( "Canvas already have a trigger" );
+                return false;
+            }
+
+
+            //logics
+
+            const yesNo = ["yes", "no"];
+
+            //only logic should follow logics other than yes or no
+            if ( parentGroup == TYPE_LOGIC ) {
+
+                if ( !yesNo.includes( parentType ) && blockGroup != TYPE_LOGIC ) {
+
+                    notify( "Only logic should be folled by a logics block" )
+                    return false;
+                }
+            }
+
+
+            if ( blockGroup == TYPE_LOGIC ) {
+
+                //Non logic blocks should not be followed by yes or no
+                if ( parentGroup != TYPE_LOGIC && yesNo.includes( blockType ) ) {
+
+                    notify( "Non logic blocks cant be followed by yes or no" );
+                    return false;
+                }
+
+                //A  "yes" or "no" logic block should only be followed action blocks
+                if ( yesNo.includes( parentType ) ) {
+
+                    notify( 'A  "yes" or "no" logic block should only be followed action blocks' );
+                    return false;
+                }
+
+                //A logic block other than "yes" and "no" should be followed by "yes" or "no"
+                if ( parentGroup == TYPE_LOGIC && !yesNo.includes( parentType ) && !yesNo.includes( blockType ) ) {
+
+                    notify( 'A logic block other than "yes" and "no" should be followed by "yes" or "no"' );
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
 
     /////////////////////////// Utils ///////////////////////
     /**
@@ -73,8 +160,9 @@ document.addEventListener( "DOMContentLoaded", function () {
      * @param {bool} capture Capture event or not
      * @param {string} selector The element selector
      */
-    function addEventListener ( selector, type, listener, capture ) {
+    function addCustomEventListener ( selector, type, listener, capture ) {
         let nodes = document.querySelectorAll( selector );
+
         for ( let i = 0; i < nodes.length; i++ ) {
             nodes[i].addEventListener( type, listener, capture );
         }
@@ -215,8 +303,16 @@ document.addEventListener( "DOMContentLoaded", function () {
                                 } catch ( error ) { }
                             data[prop] = val;
                         }
-                    } )
-                    return data
+                    } );
+
+                    //check if has child node
+                    let innerContent = this.innerHTML.trim();
+                    if ( innerContent.length ) {
+                        data["children"] = innerContent;
+                        this.innerHTML = "";
+                    }
+
+                    return data;
                 }
             }
 
@@ -459,6 +555,160 @@ document.addEventListener( "DOMContentLoaded", function () {
 
 
 
+    /////////////////////// Canvas import and export //////////////////
+
+    const initFlow = ( automationId ) => {
+        //get flow for the automation from server
+    }
+
+    const startFlow = ( output ) => {
+
+        try {
+
+            output = atob( output );
+            output.html = DOMPurify.sanitize( output, { USE_PROFILES: { html: true } } );
+            flowy.import( output );
+
+            //select first block
+        } catch ( error ) {
+
+            alert( "Error importing flow: " + error.message )
+        }
+
+    }
+
+    // @TODO: see template saving scheme.
+    const saveFlow = () => {
+
+        try {
+
+            deselectBlock();
+
+            let output = flowy.output();
+
+            // sanitize html off XSS
+            output.html = DOMPurify.sanitize( output.html, { USE_PROFILES: { html: true } } );
+
+            // encode for more save transfer
+            output = compressData( output );
+            console.log( output );
+
+            //send to server
+
+        } catch ( error ) {
+
+            alert( "Error exporting flow: " + error.message );
+        }
+    }
+
+    // @TODO: see template saving scheme.
+    const importFlow = () => {
+
+        //import the text to convas
+        let inputBox = document.getElementById( "import-box" ); //get input content;
+        if ( !inputBox )
+            return;
+
+        let content = inputBox.value.trim();
+
+        try {
+
+            if ( !content.length ) throw new Error( "Content can not be empty" );
+
+            //uncompress/decode and parse to object
+            content = decompressData( content );
+
+            // sanitize html off XSS
+            content.html = DOMPurify.sanitize( content.html, { USE_PROFILES: { html: true } } );
+            flowy.deleteBlocks();
+            flowy.import( content );
+
+            //close modal
+            document.body.click();
+        } catch ( error ) {
+
+            alert( "Invalid content. Make sure the content is pasted without alteration:" + error.message )
+        }
+
+    }
+
+    // @TODO: see template saving scheme.
+    const exportFlow = () => {
+
+        deselectBlock();
+
+        let exportBox = document.getElementById( "export-box" );
+
+        if ( !exportBox )
+            return;
+
+        exportBox.value = "";
+
+        let output = flowy.output();
+
+        if ( output ) {
+            // sanitize html
+            output.html = DOMPurify.sanitize( output.html, { USE_PROFILES: { html: true } } );
+
+            // show madal with text box, paste the output into textarea
+            exportBox.value = compressData( output );
+        }
+    }
+
+    //copyToclipboard
+    const copyToClipboard = async ( e ) => {
+
+        let textArea = document.getElementById( e.target.dataset.target );
+
+        if ( navigator.clipboard ) {
+
+            navigator.clipboard.writeText( textArea.value ).then( function () {
+                notify( 'Copied!' );
+            }, function ( err ) {
+                notify( 'Could not copy text: ' + err.message, 'error' );
+            } );
+        } else {
+
+            textArea.focus();
+            textArea.select();
+
+            try {
+                if ( document.execCommand( 'copy' ) ) {
+                    notify( 'Copied!' );
+                } else {
+                    throw new Error( "Error copying text" )
+                }
+                textArea.setSelectionRange( 0, 0 )
+            } catch ( err ) {
+                notify( err.message, 'error' );
+            }
+        }
+    }
+
+    /**
+     * Compress data for reduced storage and network request
+     * @param {object} dataObj 
+     * @returns {string}
+     */
+    function compressData ( dataObj ) {
+        return LZString.compressToEncodedURIComponent( JSON.stringify( dataObj ) );
+    }
+
+    /**
+     * Decompress data and parse to object
+     * @param {string} dataString
+     * @returns {object}
+     */
+    function decompressData ( dataString ) {
+        return JSON.parse( LZString.decompressFromEncodedURIComponent( dataString ) );
+    }
+
+    function notify ( note, type = 'success' ) {
+        console.log( note, type )
+    }
+
+
+
 
     /////////////////////// General Helpers //////////////////
 
@@ -578,29 +828,37 @@ document.addEventListener( "DOMContentLoaded", function () {
     setBlockCustomStyles();
 
     //////////////////////// DOM bindings ////////////////////
-    addEventListener( "#canvas .blockelem.block", "click", openRightCard );
-    addEventListener( "#close", "click", closeRightCard );
-    addEventListener( "#preview", "click", previewMode );
-    addEventListener( "#close-left-card", "click", () => { toggleLeftCard( 'toggle' ) } );
-    addEventListener( "#edit", "click", () => { deselectBlock(); openRightCard(); } );
-    addEventListener( "#removeblocks", "click", removeAllBlocks );
-    addEventListener( "#components", "change", setBlockPropertiesValue );
-    addClickEventOnly( canvas, ( event ) => {
+    //addCustomEventListener( "#canvas .blockelem.block", "click", openRightCard );
+    setTimeout( () => {
+        addCustomEventListener( "#close", "click", closeRightCard );
+        addCustomEventListener( "#preview", "click", previewMode );
+        addCustomEventListener( "#close-left-card", "click", () => { toggleLeftCard( 'toggle' ) } );
+        addCustomEventListener( "#edit", "click", () => { deselectBlock(); openRightCard(); } );
+        addCustomEventListener( ".deselect", "click", deselectBlock );
+        addCustomEventListener( "#importModalBtn", "click", () => { document.getElementById( "import-box" ).value = ""; } );
+        addCustomEventListener( "#import", "click", importFlow );
+        addCustomEventListener( "#export", "click", exportFlow );
+        addCustomEventListener( ".copy-to-clipboard", "click", copyToClipboard );
+        addCustomEventListener( "#save", "click", () => { saveFlow(); } );
+        addCustomEventListener( "#removeblocks", "click", removeAllBlocks );
+        addCustomEventListener( "#components", "change", setBlockPropertiesValue );
+        addClickEventOnly( canvas, ( event ) => {
 
-        let targetBlock = event.target.closest( ".blockelem.block:not(.selectedblock)" );
-        if ( targetBlock ) {
+            let targetBlock = event.target.closest( ".blockelem.block:not(.selectedblock)" );
+            if ( targetBlock ) {
 
-            openRightCard( targetBlock )
-        }
-    }, 1 );
+                openRightCard( targetBlock )
+            }
+        }, 1 );
 
-    //confirm before leaving page
-    window.onbeforeunload = function ( e ) {
-        return "Do you want to exit this page?";
-    };
+        //confirm before leaving page
+        window.onbeforeunload = function ( e ) {
+            return "Do you want to exit this page?";
+        };
 
-    //open prop for automation info edit
-    openRightCard();
+        //open prop for automation info edit
+        openRightCard();
 
+    }, 0 );
 } );
 

@@ -73,6 +73,8 @@ document.addEventListener( 'alpine:init', () => {
     Alpine.store( 'navs', {
         leftnav: true,
         preview: false,
+        import: false,
+        export: false,
         set ( key, val ) {
             this[key] = val;
         },
@@ -143,6 +145,22 @@ document.addEventListener( 'alpine:init', () => {
     } );
 } );
 
+//usemodal
+function useModal ( props ) {
+    const store = Alpine.store( 'navs' );
+    console.log( store[props.modal], props.modal )
+    return {
+        ...{
+            header: true,
+            title: '',
+        },
+        ...props,
+        ...{
+            showModal: () => store[props.modal],
+            closeModal: () => store.set( props.modal, false )
+        }
+    }
+}
 
 //trigger an event on components block to update value and summary
 function componentShouldUpdate ( event = '' ) {

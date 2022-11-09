@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html x-data :class="{dark: $store.darkMode.on}">
+<html x-data :class="{dark: $store.darkMode.on}" lang="en">
 
 <head>
     <!-- Primary Meta Tags -->
     <title>Flowy - The simple flowchart engine</title>
+    <meta charset="utf-8">
     <meta name="title" content="Flowy - The simple flowchart engine">
     <meta name="description"
         content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
@@ -24,20 +25,20 @@
     <meta property="twitter:description"
         content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
     <meta property="twitter:image" content="https://alyssax.com/x/assets/images/meta.png">
-    <meta name="viewport"
-        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
 
     <!-- css style sheets -->
-    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
-    <link href='assets/css/styles.css' rel='stylesheet' type='text/css'>
-    <link href='assets/css/flowy.min.css' rel='stylesheet' type='text/css'>
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&amp;display=swap" rel="stylesheet">
+    <link href="assets/css/styles.css" rel="stylesheet" type="text/css">
+    <link href="assets/css/flowy.min.css" rel="stylesheet" type="text/css">
 
 
     <!-- libraries -->
-    <script src="assets/js/alpine.min.js" defer></script>
+    <script src="assets/js/dompurify/purify.min.js"></script>
+    <script src="assets/js/alpine.min.js" defer=""></script>
     <script src="assets/js/flowy.min.js"></script>
-
+    <script language="javascript" src="assets/js/lz-string.min.js"></script>
 
     <!-- internal -->
     <script>
@@ -67,7 +68,7 @@
     <header id="navigation" class="flex">
         <div id="leftside">
             <div id="details">
-                <a href id="back"><img src="assets/images/arrow.svg"></a>
+                <a href id="back"><img src="assets/images/arrow.svg" alt="back"></a>
                 <div id="names">
                     <p id="title" x-text="$store.automation.title"></p>
                     <p id="subtitle">Marketing automation</p>
@@ -93,13 +94,13 @@
     <main class="wrapper">
         <div id="left-card">
             <div id="close-left-card">
-                <img src="assets/images/closeleft.svg">
+                <img src="assets/images/closeleft.svg" alt="close left">
             </div>
 
             <div class="left-card-body" x-show="$store.navs.leftnav">
                 <p class="title">Blocks</p>
                 <div id="search">
-                    <img src="assets/images/search.svg">
+                    <img src="assets/images/search.svg" alt="search">
                     <input type="text" placeholder="Search blocks" x-model.debounce.300ms="$store.blocklist.search">
                 </div>
 
@@ -178,8 +179,8 @@
             <div class="right-card-header">
                 <div class="flex">
                     <p class="title">Properties</p>
-                    <div id="close">
-                        <img src="assets/images/close.svg">
+                    <div id="close" class="close">
+                        <img src="assets/images/close.svg" alt="close">
                     </div>
 
                 </div>
@@ -197,8 +198,8 @@
                     </div>
                     <div id="proplist">
                         <p class="input-label">Name</p>
-                        <input name="title" type="text" x-model="$store.automation.title" />
-
+                        <input aria-label="automation title" name="title" type="text"
+                            x-model="$store.automation.title" />
                     </div>
                 </div>
 
@@ -275,6 +276,23 @@
                         </div>
                     </template>
 
+                    <!-- modal component-->
+                    <template x-component="modal">
+                        <div x-data="{ ...useModal($el.parentElement.props) }" class="modal" x-show="showModal">
+
+                            <div class="modal-container" @click.outside="closeModal">
+                                <div class="modal-header flex" x-show="header">
+                                    <h3 x-text="title"></h3>
+                                    <button class="close" @click="closeModal">
+                                        <img src="assets/images/close.svg" alt="close">
+                                    </button>
+                                </div>
+
+                                <div class="modal-body" x-html="children"></div>
+                            </div>
+                        </div>
+                    </template>
+
 
                     <!-- input repeat component -->
                     <template x-component="input-pair-repeat">
@@ -307,15 +325,51 @@
                 </div>
             </div>
 
-            <div class="right-card-footer">
-                <div class="divider"></div>
+            <div class="right-card-footer" x-show="!$store.canvas.selectedBlock">
+                <div class="divider spacer"></div>
+                <div class="flex">
+                    <button id="importModalBtn" type="button" class="btn btn-default deselect"
+                        @click="$store.navs.toggle('import')">
+                        Import
+                    </button>
+                    <button id="export" type="button" class="btn btn-default deselect"
+                        @click="$store.navs.toggle('export')">
+                        Export
+                    </button>
+                </div>
                 <button id="removeblocks" type="button" class="btn btn-danger">
                     <div>Delete all blocks</div>
                 </button>
             </div>
         </div>
-
     </main>
+
+
+
+
+    <!-- modals -->
+    <div class="modals">
+
+        <!-- import modal -->
+        <x-modal data-x-modal='import' data-x-title="Import from text">
+            <div>
+                <textarea id="import-box" aria-label="flow content"
+                    placeholder="Paste your canvas content here"></textarea>
+                <button id="import" type="button" class="btn btn-primary">
+                    Import
+                </button>
+            </div>
+        </x-modal>
+
+        <!-- export modal -->
+        <x-modal data-x-modal='export' data-x-title="Export">
+            <textarea id="export-box" aria-label="Copy content" readonly></textarea>
+            <button type="button" class="btn btn-primary copy-to-clipboard mt-10" data-target="export-box">
+                Copy to clipboard
+            </button>
+        </x-modal>
+
+    </div>
 
 </body>
 

@@ -6,7 +6,7 @@ class CampaignScheduleExt extends ExtensionInit
     public $name = 'Automation';
 
     // description of the extension as shown in backend panel
-    public $description = 'Automatically or conditionally perform actions like send email campaigns to your list or individuals in response to several types of events.';
+    public $description = 'Mailwizz Email and Marketing Automation with flow builder. Automatically or conditionally perform actions like send email campaigns to your list or individuals in response to several types of events.';
 
     // current version of this extension
     public $version = '0.0.1';
@@ -39,7 +39,15 @@ class CampaignScheduleExt extends ExtensionInit
     // run the extension, ths is mandatory
     public function run()
     {
-        Yii::import('ext-automation.common.models.*');
+        Yii::import('ext-reply-tracker.common.models.*');
+
+        $this->commonHooks();
+
+        if ($this->isAppName('backend')) {
+
+            // handle all backend related tasks
+            $this->backendApp();
+        }
 
         /**
          * Now we can continue only if the extension is enabled from its settings:
@@ -48,9 +56,10 @@ class CampaignScheduleExt extends ExtensionInit
             return;
         }
 
-        //load common route for both api and customer
-        if ($this->isAppName('api') || $this->isAppName('customer')) {
-            $this->appRoutes();
+        if ($this->isAppName('api')) {
+
+            // handle all api related tasks
+            $this->apiApp();
         }
 
         if ($this->isAppName('customer')) {
@@ -66,38 +75,66 @@ class CampaignScheduleExt extends ExtensionInit
         }
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getViewPath($appName, $view)
+    //common hooks 
+    protected function commonHooks()
     {
-        return $this->getPathAlias("$appName.views.$view");
+        $hooks = Yii::app()->hooks;
     }
 
-
-    /**
-     * Handle route for api access
-     * @TODO: extend in future for more api endpoints
-     */
-    protected function appRoutes()
+    // handle all api related tasks
+    protected function apiApp()
     {
-
         /**
          * Add the url rules.
          * Best is to follow the pattern below for your extension to avoid name clashes.
          * ext_example_settings is actually the controller file defined in controllers folder.
          */
         Yii::app()->urlManager->addRules(array(
-            array('campaign_schedule/index', 'pattern'    => 'extensions/campaign-schedule/index'),
-            array('campaign_schedule/', 'pattern' => 'extensions/campaign-schedule/*'),
+            array('automation/<action>', 'pattern'    => 'automation/*'),
         ));
 
         /**
          * And now we register the controller for the above rules.
          *
+         * Please note that you can register controllers and urls rules
+         * in any of the apps.
+         *
+         * Remember how we said that ext_example_settings is actually the controller file:
          */
-        Yii::app()->controllerMap['campaign_schedule'] = array(
-            'class'     => 'ext-campaign-schedule.common.controllers.CampaignScheduleController',
+        Yii::app()->controllerMap['automation'] = array(
+            // remember the ext-example path alias?
+            'class'     => 'ext-automation.api.controllers.AutomationExtApiController',
+
+            // pass the extension instance as a variable to the controller
+            'extension' => $this,
+        );
+    }
+
+
+    // handle all backend related tasks
+    protected function backendApp()
+    {
+        /**
+         * Add the url rules.
+         * Best is to follow the pattern below for your extension to avoid name clashes.
+         * ext_example_settings is actually the controller file defined in controllers folder.
+         */
+        Yii::app()->urlManager->addRules(array(
+            array('automation_settings/index', 'pattern'    => 'automation/settings'),
+            array('automation_settings/<action>', 'pattern' => 'automation/settings/*'),
+        ));
+
+        /**
+         * And now we register the controller for the above rules.
+         *
+         * Please note that you can register controllers and urls rules
+         * in any of the apps.
+         *
+         * Remember how we said that ext_example_settings is actually the controller file:
+         */
+        Yii::app()->controllerMap['automation_settings'] = array(
+            // remember the ext-example path alias?
+            'class'     => 'ext-automation.backend.controllers.AutomationExtBackendSettingsController',
 
             // pass the extension instance as a variable to the controller
             'extension' => $this,
@@ -108,120 +145,124 @@ class CampaignScheduleExt extends ExtensionInit
     // handle all customer related tasks
     protected function customerApp()
     {
+        /** register the url rule to resolve the pages */
+        Yii::app()->urlManager->addRules([
+            ['automation/index', 'pattern' => 'automation/index'],
+            ['automation_logs/', 'pattern' => 'automation/logs/<action>'],
+        ]);
 
-        // let's add settings ui:
-        Yii::app()->hooks->addAction('campaign_form_setup_step_after_campaign_options', function ($params) {
-            $this->renderSettingsUI($params);
-        });
+        /** add the controllers */
+        Yii::app()->controllerMap['automation'] = array(
+            'class'     => 'ext-automation.customer.controllers.AutomationExtCustomerController',
+            'extension' => $this,
+        );
+        /** add the controllers */
+        Yii::app()->controllerMap['automation_log'] = array(
+            'class'     => 'ext-automation.customer.controllers.AutomationExtCustomerLogController',
+            'extension' => $this,
+        );
 
-        Yii::app()->hooks->addAction('controller_action_save_data', function ($collection) {
-            CampaignScheduleHelper::saveCampaignSchedules($collection);
-        });
-
-        Yii::app()->hooks->addAction('customer_campaigns_overview_after_tracking_stats', function ($collection) {
-            $controller = $collection->itemAt("controller");
-            $this->renderStatisticUI($controller);
-        });
+        // add the menu item
+        Yii::app()->hooks->addFilter('customer_left_navigation_menu_items', array($this, '_registerCustomerMenuItem'));
     }
-
 
     // handle all command related tasks
     public function consoleApp()
     {
+        Yii::app()->getCommandRunner()->commands['run-automations'] = array(
+            'class' => 'ext-automation.console.commands.RunAutomationCommand'
+        );
+    }
 
-        //enable below lines for debug mode.
-        if ($this->debug) {
-            Yii::app()->hooks->addFilter('console_command_send_campaigns_stdout_message', function ($message) {
-                var_dump($message);
-                return $message;
-            });
-        }
+    // menu callback for backend
+    public function _registerBackendMenuItem(array $items = array())
+    {
+    }
 
+    // menu callback for customer area
+    public function _registerCustomerMenuItem(array $items = array())
+    {
+        $route = Yii::app()->getController()->getRoute();
+        $items['reply-tracker'] = array(
+            'name'      => Yii::t('ext_automation', 'Automations'),
+            'icon'      => 'glyphicon-inbox',
+            'active'    => 'automation',
+            'route'     => null,
+            'items'     => array(
+                array('url' => array('automation/index'), 'label' => Yii::t('app', 'Dashboard'), 'active' => strpos($route, 'reply_tracker') !== false),
+                array('url' => array('automation/logs'), 'label' => Yii::t('app', 'Logs'), 'active' => strpos($route, 'logs') !== false),
+            ),
+        );
+        return $items;
+    }
 
-        Yii::app()->hooks->addFilter('console_send_campaigns_command_find_campaigns_criteria', function ($criteria) {
-            return CampaignScheduleHelper::filterCampaignsToSendCriteria($criteria);
-        });
-
-
-        Yii:
-        app()->hooks->addAction('console_command_send_campaigns_send_campaign_step1_start', function ($campaign) {
-            return CampaignScheduleHelper::canSendCampaign($campaign);
-        });
-
-
-        Yii::app()->hooks->addAction('console_send_campaigns_command_process_subscribers_loop_in_loop_start', function ($collection) {
-            return CampaignScheduleHelper::canSendCampaignSubscriber($collection);
-        });
-
-
-        Yii::app()->hooks->addAction('console_command_send_campaigns_after_send_to_subscriber', function ($campaign, $subscriber, $customer, $server, $sent) {
-            return CampaignScheduleHelper::afterSendCampaign($campaign, $subscriber, $customer, $server, $sent);
-        });
+    /**
+     * This is an inherit method where we define the url to our settings page in backed.
+     * Remember that we can click on an extension title to view the extension settings.
+     * This method generates that link.
+     */
+    public function getPageUrl()
+    {
+        return Yii::app()->createUrl('automation_settings/index');
     }
 
 
-    /**
-     * Create databaste structure
-     *
-     * @return     mixed
-     */
+    // create the database table
     public function beforeEnable()
     {
-        //campaign schedule schema
+        //reply tracker schema for storing inbound servers
         Yii::app()->getDb()->createCommand("
-        CREATE TABLE IF NOT EXISTS `{{campaign_schedule}}` (
-         `schedule_id` int(11) NOT NULL AUTO_INCREMENT,
+        CREATE TABLE IF NOT EXISTS `{{automations}}` (
+         `automation_id` int(11) NOT NULL AUTO_INCREMENT,
          `customer_id` int(11) DEFAULT NULL,
-         `campaign_id` int(11) DEFAULT NULL,
-         `total_emails_to_send` int(11) NOT NULL DEFAULT '0',
-         `between_email_delay` int(11) NOT NULL DEFAULT '0',
-         `day_of_week` enum('0','1','2','3','4','5','6') NOT NULL DEFAULT '1',
-         `start_at` varchar(255) NOT NULL,
-         `stop_at` varchar(255) NOT NULL,
-         `meta_data` longtext default NULL,
+         `name` varchar(150) NOT NULL,
+         `trigger` varchar(150) NOT NULL,
+         `canvas` varchar(255) NOT NULL,
+         `canvas_data` varchar(150) NOT NULL,
+         `locked` enum('yes','no') NOT NULL DEFAULT 'no',
+         `canvas` longblob,
+         `status` char(15) NOT NULL DEFAULT 'draft',
          `date_added` datetime NOT NULL,
          `last_updated` datetime NOT NULL,
-         PRIMARY KEY (`schedule_id`),
-         KEY `fk_{{campaign_schedule}}_customer1_idx` (`customer_id`),
-         KEY `fk_{{campaign_schedule}}_campaign1_idx` (`campaign_id`),
-         CONSTRAINT `fk_{{campaign_schedule}}_customer1` FOREIGN KEY (`customer_id`) REFERENCES `{{customer}}` (`customer_id`) ON DELETE CASCADE ON UPDATE NO ACTION,
-         CONSTRAINT `fk_{{campaign_schedule}}_campaign1` FOREIGN KEY (`campaign_id`) REFERENCES `{{campaign}}` (`campaign_id`) ON DELETE CASCADE ON UPDATE NO ACTION
+         PRIMARY KEY (`automation_id`),
+         KEY `fk_{{automations}}_customer1_idx` (`customer_id`),
+         CONSTRAINT `fk_{{automations}}_customer1` FOREIGN KEY (`customer_id`) REFERENCES `{{customer}}` (`customer_id`) ON DELETE CASCADE ON UPDATE NO ACTION
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
         ")->execute();
 
+        //automation log schema for tracking automation step
+        Yii::app()->getDb()->createCommand("
+        CREATE TABLE IF NOT EXISTS `{{automation_logs}}` (
+         `log_id` bigint(20) NOT NULL AUTO_INCREMENT,
+         `customer_id` int(11) NOT NULL,
+         `server_id` int(11) NOT NULL,
+         `campaign_id` int(11) NOT NULL,
+         `subscriber_id` int(11) NOT NULL,
+         `message_id` int(11) NOT NULL,
+         `message`  longtext DEFAULT NULL,
+         `to` varchar(50) DEFAULT NULL,
+         `from_email` varchar(50) DEFAULT NULL,
+         `from_name` varchar(50) DEFAULT NULL,
+         `reply_date` datetime DEFAULT NULL,
+         `date_added` datetime NOT NULL,
+         `last_updated` datetime NOT NULL,
+         PRIMARY KEY (`log_id`),
+         KEY `fk_{{reply_tracker_log}}_campaign1_idx` (`campaign_id`),
+         KEY `fk_{{reply_tracker_log}}_list_subscriber1_idx` (`subscriber_id`),
+        CONSTRAINT `fk_{{reply_tracker_log}}_campaign1` FOREIGN KEY (`campaign_id`) REFERENCES `{{campaign}}` (`campaign_id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+         CONSTRAINT `fk_{{reply_tracker_log}}_list_subscriber1` FOREIGN KEY (`subscriber_id`) REFERENCES `{{list_subscriber}}` (`subscriber_id`) ON DELETE CASCADE ON UPDATE NO ACTION
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+        ")->execute();
         // call parent
         return parent::afterEnable();
     }
 
-
-    /**
-     * Drop the table when extension is removed.
-     *
-     * @return
-     */
+    // drop the table when extension is removed.
     public function beforeDelete()
     {
-        Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{campaign_schedule}}`')->execute();
-
+        Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{reply_trackers}}`')->execute();
+        Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{reply_tracker_log}}`')->execute();
         // call parent
         return parent::beforeDelete();
-    }
-
-    /**
-     * Render the schedule adding ui in campaign setup
-     */
-    public function renderSettingsUI($params)
-    {
-        $controller = $params['controller'];
-        $controller->renderPartial($this->getViewPath('customer', 'schedule'), compact('params'));
-    }
-
-    /**
-     * Render the schedule static ui in campaign overview
-     */
-    public function renderStatisticUI($controller)
-    {
-        $campaign = $controller->getData('campaign');
-        $controller->renderPartial($this->getViewPath('customer', 'statistic'), compact('campaign'));
     }
 }
