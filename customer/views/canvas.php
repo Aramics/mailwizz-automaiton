@@ -1,9 +1,12 @@
+<?php
+$assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
+?>
 <!DOCTYPE html>
 <html x-data :class="{dark: $store.darkMode.on,'preview-mode': $store.navs.preview}" lang="en">
 
 <head>
     <!-- Primary Meta Tags -->
-    <title>Flowy - The simple flowchart engine</title>
+    <title><?= $automation->title ?> - <?= $this->extension->t('automation'); ?></title>
     <meta charset="utf-8">
     <meta name="title" content="Flowy - The simple flowchart engine">
     <meta name="description"
@@ -30,37 +33,67 @@
 
     <!-- css style sheets -->
     <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&amp;display=swap" rel="stylesheet">
-    <link href="assets/css/styles.css" rel="stylesheet" type="text/css">
-    <link href="assets/css/flowy.min.css" rel="stylesheet" type="text/css">
+    <link href="<?= $assets_dir; ?>/css/styles.css" rel="stylesheet" type="text/css">
+    <link href="<?= $assets_dir; ?>/css/flowy.min.css" rel="stylesheet" type="text/css">
 
 
     <!-- libraries -->
-    <script src="assets/js/dompurify/purify.min.js"></script>
-    <script src="assets/js/alpine.min.js" defer=""></script>
-    <script src="assets/js/flowy.min.js"></script>
-    <script language="javascript" src="assets/js/lz-string.min.js"></script>
+    <script src="<?= $assets_dir; ?>/js/dompurify/purify.min.js"></script>
+    <script src="<?= $assets_dir; ?>/js/alpine.min.js" defer=""></script>
+    <script src="<?= $assets_dir; ?>/js/flowy.min.js"></script>
+    <script language="javascript" src="<?= $assets_dir; ?>/js/lz-string.min.js"></script>
 
     <!-- internal -->
     <script>
-        const AUTOMATION_WEBHOOK_URL = 'https://mailwizzz.com/automations/2233/webhook/start';
-        const INTERVALS = [
-            { key: 's', label: 'Second(s)' },
-            { key: 'i', label: 'Minute(s)' },
-            { key: 'h', label: 'Hour(s)' },
-            { key: 'd', label: 'Day(s)' },
-            { key: 'w', label: 'Week(s)' },
-            { key: 'm', label: 'Month(s)' },
-            { key: 'y', label: 'Year(s)' }
-        ];
-        const OPERATORS = [
-            { key: '>', label: 'Greater than' },
-            { key: '<', label: 'Less than' },
-            { key: '=', label: 'Equals' }
-        ];
+    const AUTOMATION_WEBHOOK_URL = 'https://mailwizzz.com/automations/2233/webhook/start';
+    const ASSETS_PATH = "<?= $assets_dir; ?>";
+    const AUTOMATION_DETAILS = <?= json_encode($automation->attributes) ?>;
+    const INTERVALS = [{
+            key: 's',
+            label: 'Second(s)'
+        },
+        {
+            key: 'i',
+            label: 'Minute(s)'
+        },
+        {
+            key: 'h',
+            label: 'Hour(s)'
+        },
+        {
+            key: 'd',
+            label: 'Day(s)'
+        },
+        {
+            key: 'w',
+            label: 'Week(s)'
+        },
+        {
+            key: 'm',
+            label: 'Month(s)'
+        },
+        {
+            key: 'y',
+            label: 'Year(s)'
+        }
+    ];
+    const OPERATORS = [{
+            key: '>',
+            label: 'Greater than'
+        },
+        {
+            key: '<',
+            label: 'Less than'
+        },
+        {
+            key: '=',
+            label: 'Equals'
+        }
+    ];
     </script>
-    <script src="assets/js/blocks.js"></script>
-    <script src="assets/js/main.js"></script>
-    <script src="assets/js/store.js"></script>
+    <script src="<?= $assets_dir; ?>/js/blocks.js"></script>
+    <script src="<?= $assets_dir; ?>/js/main.js"></script>
+    <script src="<?= $assets_dir; ?>/js/store.js"></script>
 
 
 </head>
@@ -69,7 +102,7 @@
     <header id="navigation" class="flex">
         <div id="leftside">
             <div id="details">
-                <a href id="back"><img src="assets/images/arrow.svg" alt="back"></a>
+                <a href id="back"><img src="<?= $assets_dir; ?>/images/arrow.svg" alt="back"></a>
                 <div id="names">
                     <p id="title" x-text="$store.automation.title"></p>
                     <p id="subtitle">Marketing automation</p>
@@ -78,11 +111,11 @@
         </div>
         <div id="buttonsright" class="flex">
             <button @click="$store.darkMode.toggle()" class="theme-switch">
-                <img :src="$store.darkMode.on ? 'assets/images/light-mode.svg':'assets/images/dark-mode.svg'"
+                <img :src="$store.darkMode.on ? '<?= $assets_dir; ?>/images/light-mode.svg':'<?= $assets_dir; ?>/images/dark-mode.svg'"
                     alt="Dark mode" title="Dark mode" />
             </button>
             <button id="preview" class="btn btn-default">
-                <img :src="!$store.navs.preview ? 'assets/images/eye.svg':'assets/images/eyeblue.svg'"
+                <img :src="!$store.navs.preview ? '<?= $assets_dir; ?>/images/eye.svg':'<?= $assets_dir; ?>/images/eyeblue.svg'"
                     alt="Toggle preview" title="Toggle preview" />
             </button>
 
@@ -95,13 +128,13 @@
     <main class="wrapper">
         <div id="left-card">
             <div id="close-left-card">
-                <img src="assets/images/closeleft.svg" alt="close left">
+                <img src="<?= $assets_dir; ?>/images/closeleft.svg" alt="close left">
             </div>
 
             <div class="left-card-body" x-show="$store.navs.leftnav">
                 <p class="title">Blocks</p>
                 <div id="search">
-                    <img src="assets/images/search.svg" alt="search">
+                    <img src="<?= $assets_dir; ?>/images/search.svg" alt="search">
                     <input type="text" placeholder="Search blocks" x-model.debounce.300ms="$store.blocklist.search">
                 </div>
 
@@ -132,7 +165,7 @@
                                         x-bind:value="blockItem.group">
 
                                     <div class="grabme">
-                                        <img src="assets/images/grabme.svg">
+                                        <img src="<?= $assets_dir; ?>/images/grabme.svg">
                                     </div>
 
                                     <div class="block-content">
@@ -152,7 +185,8 @@
                                             </div>
                                             <p class="block-canvas-name" x-text="blockItem.title"></p>
                                         </div>
-                                        <div class='block-canvas-right'><img src="assets/images/more.svg"></div>
+                                        <div class='block-canvas-right'><img src="<?= $assets_dir; ?>/images/more.svg">
+                                        </div>
                                         <div class='block-canvas-div'></div>
                                         <div class='block-canvas-info'>...</div>
                                     </div>
@@ -181,7 +215,7 @@
                 <div class="flex">
                     <p class="title">Properties</p>
                     <div id="close" class="close">
-                        <img src="assets/images/close.svg" alt="close">
+                        <img src="<?= $assets_dir; ?>/images/close.svg" alt="close">
                     </div>
 
                 </div>
@@ -285,7 +319,7 @@
                                 <div class="modal-header flex" x-show="header">
                                     <h3 x-text="title"></h3>
                                     <button class="close" @click="closeModal">
-                                        <img src="assets/images/close.svg" alt="close">
+                                        <img src="<?= $assets_dir; ?>/images/close.svg" alt="close">
                                     </button>
                                 </div>
 

@@ -34,7 +34,7 @@ if ($viewCollection->renderContent) {
 <div class="box box-primary">
     <div class="box-header">
         <h3 class="box-title">
-            <?php echo IconHelper::make('fa-cog') . Yii::t('settings', 'Settings for processing reply tracker') ?></h3>
+            <?php echo IconHelper::make('fa-cog') . Yii::t('settings', 'Settings for processing automation') ?></h3>
     </div>
     <div class="box-body">
 
@@ -55,52 +55,17 @@ if ($viewCollection->renderContent) {
                 <?php echo $form->dropDownList($model, 'enabled', $model->getYesNoOptions(), $model->getHtmlOptions('enabled')); ?>
                 <?php echo $form->error($model, 'enabled'); ?>
             </div>
-            <div class="col-lg-2">
+            <div class="col-lg-12">
                 <div class="form-group">
-                    <?php echo $form->labelEx($model, 'servers_at_once'); ?>
-                    <?php echo $form->numberField($model, 'servers_at_once', $model->getHtmlOptions('servers_at_once')); ?>
-                    <?php echo $form->error($model, 'servers_at_once'); ?>
-                </div>
-            </div>
-            <div class="col-lg-2">
-                <div class="form-group">
-                    <?php echo $form->labelEx($model, 'emails_at_once'); ?>
-                    <?php echo $form->numberField($model, 'emails_at_once', $model->getHtmlOptions('emails_at_once')); ?>
-                    <?php echo $form->error($model, 'emails_at_once'); ?>
-                </div>
-            </div>
-            <div class="col-lg-2">
-                <div class="form-group">
-                    <?php echo $form->labelEx($model, 'pause'); ?>
-                    <?php echo $form->numberField($model, 'pause', $model->getHtmlOptions('pause')); ?>
-                    <?php echo $form->error($model, 'pause'); ?>
-                </div>
-            </div>
-            <div class="col-lg-2">
-                <div class="form-group">
-                    <?php echo $form->labelEx($model, 'days_back'); ?>
-                    <?php echo $form->numberField($model, 'days_back', $model->getHtmlOptions('days_back')); ?>
-                    <?php echo $form->error($model, 'days_back'); ?>
-                </div>
-            </div>
-            <div class="col-lg-2">
-                <div class="form-group">
-                    <?php echo $form->labelEx($model, 'strictness'); ?>
-                    <?php echo $form->dropDownList($model, 'strictness', $model->getDifficultyOptions(), $model->getHtmlOptions('strictness')); ?>
-                    <?php echo $form->error($model, 'strictness'); ?>
-                </div>
-            </div>
-            <div class="col-lg-2">
-                <div class="form-group">
-                    <?php echo $form->labelEx($model, 'exclude_autoresponse'); ?>
-                    <?php echo $form->dropDownList($model, 'exclude_autoresponse', $model->getYesNoOptions(), $model->getHtmlOptions('exclude_autoresponse')); ?>
-                    <?php echo $form->error($model, 'exclude_autoresponse'); ?>
+                    <?php echo $form->labelEx($model, 'customer_groups'); ?>
+                    <?php echo $form->dropDownList($model, 'customer_groups', CMap::mergeArray(['' => ''], $model->getCustomerGroupsList()), $model->fieldDecorator->getHtmlOptions('customer_groups', ['multiple' => true])); ?>
+                    <?php echo $form->error($model, 'customer_groups'); ?>
                 </div>
             </div>
         </div>
         <hr />
         <div class="row">
-            <div class="col-lg-4">
+            <div class="col-lg-6">
                 <div class="form-group">
                     <?php echo CHtml::link(IconHelper::make('info'), '#page-info-pcntl-monitor', array('class' => 'btn btn-primary btn-xs btn-flat', 'title' => Yii::t('app', 'Info'), 'data-toggle' => 'modal')); ?>
                     <?php echo $form->labelEx($model, 'use_pcntl'); ?>
@@ -108,7 +73,7 @@ if ($viewCollection->renderContent) {
                     <?php echo $form->error($model, 'use_pcntl'); ?>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-6">
                 <div class="form-group">
                     <?php echo $form->labelEx($model, 'pcntl_processes'); ?>
                     <?php echo $form->numberField($model, 'pcntl_processes', $model->getHtmlOptions('pcntl_processes')); ?>
@@ -156,11 +121,12 @@ if ($viewCollection->renderContent) {
         <div class="clearfix">
             <!-- -->
         </div>
+        <hr />
         <div class="alert alert-info">
             <?php
-                    $text = 'Please note that you have to add the following cron job in order for this feature to work:<br />Every 5 minute - adjust to suite your needs i.e every minute or every hour. <br/>{cron}';
+                    $text = 'Please note that you have to add the following cron job in order for this feature to work:<br />Every minute - adjust to suite your needs i.e every minute or every hour. <br/>{cron}';
                     echo Yii::t('servers', StringHelper::normalizeTranslationString($text), array(
-                        '{cron}' => '<b>*/5 * * * * ' . CommonHelper::findPhpCliPath() . ' -q ' . MW_ROOT_PATH . '/apps/console/console.php track-reply >/dev/null 2>&1</b>',
+                        '{cron}' => '<b>* * * * * ' . CommonHelper::findPhpCliPath() . ' -q ' . MW_ROOT_PATH . '/apps/console/console.php run-automation >/dev/null 2>&1</b>',
                     )); ?>
         </div>
     </div>

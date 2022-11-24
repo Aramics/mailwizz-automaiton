@@ -1,6 +1,6 @@
 <?php defined('MW_PATH') || exit('No direct script access allowed');
 
-class CampaignScheduleExt extends ExtensionInit
+class AutomationExt extends ExtensionInit
 {
     // name of the extension as shown in the backend panel
     public $name = 'Automation';
@@ -21,7 +21,7 @@ class CampaignScheduleExt extends ExtensionInit
     public $email = 'mailwizz@turnsaas.com';
 
     // in which apps this extension is allowed to run
-    public $allowedApps = array('customer', 'console', 'api');
+    public $allowedApps = array('backend', 'customer', 'console', 'api');
 
     // cli enabled
     // since cli is a special case, we need to explicitly enable it
@@ -39,7 +39,7 @@ class CampaignScheduleExt extends ExtensionInit
     // run the extension, ths is mandatory
     public function run()
     {
-        Yii::import('ext-reply-tracker.common.models.*');
+        $this->loadModels();
 
         $this->commonHooks();
 
@@ -81,6 +81,11 @@ class CampaignScheduleExt extends ExtensionInit
         $hooks = Yii::app()->hooks;
     }
 
+    private function loadModels()
+    {
+        Yii::import('ext-automation.common.models.*');
+    }
+
     // handle all api related tasks
     protected function apiApp()
     {
@@ -90,7 +95,7 @@ class CampaignScheduleExt extends ExtensionInit
          * ext_example_settings is actually the controller file defined in controllers folder.
          */
         Yii::app()->urlManager->addRules(array(
-            array('automation/<action>', 'pattern'    => 'automation/*'),
+            array('automations/<action>', 'pattern'    => 'automations/*'),
         ));
 
         /**
@@ -117,22 +122,16 @@ class CampaignScheduleExt extends ExtensionInit
         /**
          * Add the url rules.
          * Best is to follow the pattern below for your extension to avoid name clashes.
-         * ext_example_settings is actually the controller file defined in controllers folder.
          */
+        Yii::app()->cache->flush();
         Yii::app()->urlManager->addRules(array(
-            array('automation_settings/index', 'pattern'    => 'automation/settings'),
-            array('automation_settings/<action>', 'pattern' => 'automation/settings/*'),
+            array('automation', 'pattern'    => 'automations/<action>'),
         ));
 
         /**
          * And now we register the controller for the above rules.
-         *
-         * Please note that you can register controllers and urls rules
-         * in any of the apps.
-         *
-         * Remember how we said that ext_example_settings is actually the controller file:
          */
-        Yii::app()->controllerMap['automation_settings'] = array(
+        Yii::app()->controllerMap['automation'] = array(
             // remember the ext-example path alias?
             'class'     => 'ext-automation.backend.controllers.AutomationExtBackendSettingsController',
 
@@ -145,20 +144,10 @@ class CampaignScheduleExt extends ExtensionInit
     // handle all customer related tasks
     protected function customerApp()
     {
-        /** register the url rule to resolve the pages */
-        Yii::app()->urlManager->addRules([
-            ['automation/index', 'pattern' => 'automation/index'],
-            ['automation_logs/', 'pattern' => 'automation/logs/<action>'],
-        ]);
 
         /** add the controllers */
-        Yii::app()->controllerMap['automation'] = array(
+        Yii::app()->controllerMap['automations'] = array(
             'class'     => 'ext-automation.customer.controllers.AutomationExtCustomerController',
-            'extension' => $this,
-        );
-        /** add the controllers */
-        Yii::app()->controllerMap['automation_log'] = array(
-            'class'     => 'ext-automation.customer.controllers.AutomationExtCustomerLogController',
             'extension' => $this,
         );
 
@@ -169,29 +158,21 @@ class CampaignScheduleExt extends ExtensionInit
     // handle all command related tasks
     public function consoleApp()
     {
-        Yii::app()->getCommandRunner()->commands['run-automations'] = array(
-            'class' => 'ext-automation.console.commands.RunAutomationCommand'
+        Yii::app()->getCommandRunner()->commands['run-automation'] = array(
+            'class' => 'ext-automation.console.commands.AutomationExtCommand'
         );
-    }
-
-    // menu callback for backend
-    public function _registerBackendMenuItem(array $items = array())
-    {
     }
 
     // menu callback for customer area
     public function _registerCustomerMenuItem(array $items = array())
     {
         $route = Yii::app()->getController()->getRoute();
-        $items['reply-tracker'] = array(
+        $items['automation'] = array(
             'name'      => Yii::t('ext_automation', 'Automations'),
-            'icon'      => 'glyphicon-inbox',
+            'icon'      => 'glyphicon-plane',
             'active'    => 'automation',
-            'route'     => null,
-            'items'     => array(
-                array('url' => array('automation/index'), 'label' => Yii::t('app', 'Dashboard'), 'active' => strpos($route, 'reply_tracker') !== false),
-                array('url' => array('automation/logs'), 'label' => Yii::t('app', 'Logs'), 'active' => strpos($route, 'logs') !== false),
-            ),
+            'route'     => array('automations/index'),
+            'items'     => null
         );
         return $items;
     }
@@ -203,7 +184,7 @@ class CampaignScheduleExt extends ExtensionInit
      */
     public function getPageUrl()
     {
-        return Yii::app()->createUrl('automation_settings/index');
+        return Yii::app()->createUrl('automations/index');
     }
 
 
@@ -214,13 +195,12 @@ class CampaignScheduleExt extends ExtensionInit
         Yii::app()->getDb()->createCommand("
         CREATE TABLE IF NOT EXISTS `{{automations}}` (
          `automation_id` int(11) NOT NULL AUTO_INCREMENT,
-         `customer_id` int(11) DEFAULT NULL,
-         `name` varchar(150) NOT NULL,
-         `trigger` varchar(150) NOT NULL,
-         `canvas` varchar(255) NOT NULL,
-         `canvas_data` varchar(150) NOT NULL,
+         `customer_id` int(11) NOT NULL,
+         `title` varchar(150) NOT NULL,
+         `trigger` varchar(150) DEFAULT NULL,
          `locked` enum('yes','no') NOT NULL DEFAULT 'no',
-         `canvas` longblob,
+         `canvas` MEDIUMTEXT DEFAULT NULL,
+         `canvas_data` MEDIUMTEXT DEFAULT NULL,
          `status` char(15) NOT NULL DEFAULT 'draft',
          `date_added` datetime NOT NULL,
          `last_updated` datetime NOT NULL,
@@ -234,25 +214,24 @@ class CampaignScheduleExt extends ExtensionInit
         Yii::app()->getDb()->createCommand("
         CREATE TABLE IF NOT EXISTS `{{automation_logs}}` (
          `log_id` bigint(20) NOT NULL AUTO_INCREMENT,
-         `customer_id` int(11) NOT NULL,
-         `server_id` int(11) NOT NULL,
-         `campaign_id` int(11) NOT NULL,
-         `subscriber_id` int(11) NOT NULL,
-         `message_id` int(11) NOT NULL,
-         `message`  longtext DEFAULT NULL,
-         `to` varchar(50) DEFAULT NULL,
-         `from_email` varchar(50) DEFAULT NULL,
-         `from_name` varchar(50) DEFAULT NULL,
-         `reply_date` datetime DEFAULT NULL,
+         `parent_log_id` bigint(20) DEFAULT NULL,
+         `automation_id` int(11) NOT NULL,
+         `subject_id` int(11) DEFAULT NULL,
+         `subject_type` varchar(250) DEFAULT NULL,
+         `canvas_block_id` int(11) NOT NULL,
+         `metadata`  MEDIUMTEXT DEFAULT NULL,
+         `status` char(15) NOT NULL DEFAULT 'draft',
          `date_added` datetime NOT NULL,
          `last_updated` datetime NOT NULL,
          PRIMARY KEY (`log_id`),
-         KEY `fk_{{reply_tracker_log}}_campaign1_idx` (`campaign_id`),
-         KEY `fk_{{reply_tracker_log}}_list_subscriber1_idx` (`subscriber_id`),
-        CONSTRAINT `fk_{{reply_tracker_log}}_campaign1` FOREIGN KEY (`campaign_id`) REFERENCES `{{campaign}}` (`campaign_id`) ON DELETE CASCADE ON UPDATE NO ACTION,
-         CONSTRAINT `fk_{{reply_tracker_log}}_list_subscriber1` FOREIGN KEY (`subscriber_id`) REFERENCES `{{list_subscriber}}` (`subscriber_id`) ON DELETE CASCADE ON UPDATE NO ACTION
+         KEY `fk_{{automations}}_automation1_idx` (`automation_id`),
+        CONSTRAINT `fk_{{automations}}_automation1` FOREIGN KEY (`automation_id`) REFERENCES `{{automations}}` (`automation_id`) ON DELETE CASCADE ON UPDATE NO ACTION
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
         ")->execute();
+
+        $this->loadModels();
+        CFileHelper::copyDirectory($src = __DIR__ . '/assets', $dst = AutomationExtCommon::CUSTOMER_ASSETS_PATH, array('newDirMode' => 0777));
+
         // call parent
         return parent::afterEnable();
     }
@@ -260,8 +239,13 @@ class CampaignScheduleExt extends ExtensionInit
     // drop the table when extension is removed.
     public function beforeDelete()
     {
-        Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{reply_trackers}}`')->execute();
-        Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{reply_tracker_log}}`')->execute();
+        Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{automation_logs}}`')->execute();
+        Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{automations}}`')->execute();
+
+        $this->loadModels();
+        CFileHelper::removeDirectory(AutomationExtCommon::CUSTOMER_ASSETS_PATH);
+
+        return false;
         // call parent
         return parent::beforeDelete();
     }
