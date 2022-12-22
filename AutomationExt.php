@@ -21,7 +21,7 @@ class AutomationExt extends ExtensionInit
     public $email = 'mailwizz@turnsaas.com';
 
     // in which apps this extension is allowed to run
-    public $allowedApps = array('backend', 'customer', 'console', 'api');
+    public $allowedApps = array('backend', 'customer', 'console', 'api', 'frontend');
 
     // cli enabled
     // since cli is a special case, we need to explicitly enable it
@@ -39,6 +39,7 @@ class AutomationExt extends ExtensionInit
     // run the extension, ths is mandatory
     public function run()
     {
+
         $this->loadModels();
 
         $this->commonHooks();
@@ -79,10 +80,16 @@ class AutomationExt extends ExtensionInit
     protected function commonHooks()
     {
         $hooks = Yii::app()->hooks;
+
+        //bind bindable triggers
+        (new AutomationExtGroupTriggers())->init($this);
     }
+
 
     private function loadModels()
     {
+        Yii::import('ext-automation.common.utils.*');
+
         Yii::import('ext-automation.common.models.*');
     }
 
@@ -198,8 +205,8 @@ class AutomationExt extends ExtensionInit
          `customer_id` int(11) NOT NULL,
          `title` varchar(150) NOT NULL,
          `trigger` varchar(150) DEFAULT NULL,
+         `trigger_value` varchar(250) DEFAULT NULL,
          `locked` enum('yes','no') NOT NULL DEFAULT 'no',
-         `canvas` MEDIUMTEXT DEFAULT NULL,
          `canvas_data` MEDIUMTEXT DEFAULT NULL,
          `status` char(15) NOT NULL DEFAULT 'draft',
          `date_added` datetime NOT NULL,
@@ -230,10 +237,10 @@ class AutomationExt extends ExtensionInit
         ")->execute();
 
         $this->loadModels();
-        CFileHelper::copyDirectory($src = __DIR__ . '/assets', $dst = AutomationExtCommon::CUSTOMER_ASSETS_PATH, array('newDirMode' => 0777));
+        //CFileHelper::copyDirectory($src = __DIR__ . '/assets', $dst = AutomationExtCommon::CUSTOMER_ASSETS_PATH, array('newDirMode' => 0777));
 
         // call parent
-        return parent::afterEnable();
+        return parent::beforeEnable();
     }
 
     // drop the table when extension is removed.
@@ -243,7 +250,7 @@ class AutomationExt extends ExtensionInit
         Yii::app()->getDb()->createCommand('DROP TABLE IF EXISTS `{{automations}}`')->execute();
 
         $this->loadModels();
-        CFileHelper::removeDirectory(AutomationExtCommon::CUSTOMER_ASSETS_PATH);
+        //CFileHelper::removeDirectory(AutomationExtCommon::CUSTOMER_ASSETS_PATH);
 
         return false;
         // call parent

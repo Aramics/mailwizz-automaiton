@@ -42,21 +42,19 @@
 
     <!-- internal -->
     <script>
+        //asset path for loading images and other static resources
+        const ASSETS_PATH = "assets";
+
+        //webhook url for the automation. This is used for webhook trigger block component
         const AUTOMATION_WEBHOOK_URL = 'https://mailwizzz.com/automations/2233/webhook/start';
-        const INTERVALS = [
-            { key: 's', label: 'Second(s)' },
-            { key: 'i', label: 'Minute(s)' },
-            { key: 'h', label: 'Hour(s)' },
-            { key: 'd', label: 'Day(s)' },
-            { key: 'w', label: 'Week(s)' },
-            { key: 'm', label: 'Month(s)' },
-            { key: 'y', label: 'Year(s)' }
-        ];
-        const OPERATORS = [
-            { key: '>', label: 'Greater than' },
-            { key: '<', label: 'Less than' },
-            { key: '=', label: 'Equals' }
-        ];
+
+        /**
+         * Automation data object.
+         * Should have following properties:
+         * { title: "Demo automation title", canvas_data: {blocks: [...], blocks_html_compressed: ... } }
+         */
+        const AUTOMATION_DETAILS = "";
+        const AUTOMATION_SAVE_URL = window.location.href;
     </script>
     <script src="assets/js/blocks.js"></script>
     <script src="assets/js/main.js"></script>

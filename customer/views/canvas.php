@@ -9,15 +9,13 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
     <title><?= $automation->title ?> - <?= $this->extension->t('automation'); ?></title>
     <meta charset="utf-8">
     <meta name="title" content="Flowy - The simple flowchart engine">
-    <meta name="description"
-        content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
+    <meta name="description" content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://alyssax.com/x/flowy">
     <meta property="og:title" content="Flowy - The simple flowchart engine">
-    <meta property="og:description"
-        content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
+    <meta property="og:description" content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
     <meta property="og:image" content="https://alyssax.com/x/assets/images/meta.png">
 
     <!-- Twitter -->
@@ -25,8 +23,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
     <meta property="twitter:url" content="https://alyssax.com/x/flowy">
     <meta property="twitter:site" content="alyssaxuu">
     <meta property="twitter:title" content="Flowy - The simple flowchart engine">
-    <meta property="twitter:description"
-        content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
+    <meta property="twitter:description" content="Flowy is a minimal javascript library to create flowcharts. Use it for automation software, mind mapping tools, programming platforms, and more. Made by Alyssa X.">
     <meta property="twitter:image" content="https://alyssax.com/x/assets/images/meta.png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -45,52 +42,33 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
 
     <!-- internal -->
     <script>
-    const AUTOMATION_WEBHOOK_URL = 'https://mailwizzz.com/automations/2233/webhook/start';
-    const ASSETS_PATH = "<?= $assets_dir; ?>";
-    const AUTOMATION_DETAILS = <?= json_encode($automation->attributes) ?>;
-    const INTERVALS = [{
-            key: 's',
-            label: 'Second(s)'
-        },
-        {
-            key: 'i',
-            label: 'Minute(s)'
-        },
-        {
-            key: 'h',
-            label: 'Hour(s)'
-        },
-        {
-            key: 'd',
-            label: 'Day(s)'
-        },
-        {
-            key: 'w',
-            label: 'Week(s)'
-        },
-        {
-            key: 'm',
-            label: 'Month(s)'
-        },
-        {
-            key: 'y',
-            label: 'Year(s)'
-        }
-    ];
-    const OPERATORS = [{
-            key: '>',
-            label: 'Greater than'
-        },
-        {
-            key: '<',
-            label: 'Less than'
-        },
-        {
-            key: '=',
-            label: 'Equals'
-        }
-    ];
+        //asset path for loading images and other static resources
+        const ASSETS_PATH = "<?= $assets_dir; ?>";
+
+        //webhook url for the automation. This is used for webhook trigger block component
+        const AUTOMATION_WEBHOOK_URL =
+            "<?= $this->createUrl('automations/' . $automation->automation_id . '/webhook'); ?>";
+
+        /**
+         * Automation data object.
+         * Should have following properties:
+         * { title: "Demo automation title", canvas_data: {blocks: [...], blocks_html_compressed: ... } }
+         */
+        const AUTOMATION_DETAILS = <?= json_encode($automation->attributes) ?>;
+        const AUTOMATION_SAVE_URL = window.location.href;
+        const MAIL_LISTS_FETCH_URL =
+            "<?= $this->createUrl('automations/lists', ['id' => $automation->automation_id]); ?>";
+        const CAMPAIGNS_FETCH_URL =
+            "<?= $this->createUrl('automations/campaigns', ['id' => $automation->automation_id]); ?>";
+        const CAMPAIGN_TEMPLATE_URLS_FETCH_URL =
+            "<?= $this->createUrl('automations/campaign_urls', ['id' => $automation->automation_id]); ?>";
+
+        const BLOCK_TYPES = <?= AutomationExtBlockTypes::getConstantsJson() ?>;
+        const BLOCK_GROUPS = <?= AutomationExtBlockGroups::getConstantsJson() ?>;
     </script>
+
+
+
     <script src="<?= $assets_dir; ?>/js/blocks.js"></script>
     <script src="<?= $assets_dir; ?>/js/main.js"></script>
     <script src="<?= $assets_dir; ?>/js/store.js"></script>
@@ -102,7 +80,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
     <header id="navigation" class="flex">
         <div id="leftside">
             <div id="details">
-                <a href id="back"><img src="<?= $assets_dir; ?>/images/arrow.svg" alt="back"></a>
+                <a href="javascript:window.history.back();" id="back"><img src="<?= $assets_dir; ?>/images/arrow.svg" alt="back"></a>
                 <div id="names">
                     <p id="title" x-text="$store.automation.title"></p>
                     <p id="subtitle">Marketing automation</p>
@@ -111,12 +89,10 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
         </div>
         <div id="buttonsright" class="flex">
             <button @click="$store.darkMode.toggle()" class="theme-switch">
-                <img :src="$store.darkMode.on ? '<?= $assets_dir; ?>/images/light-mode.svg':'<?= $assets_dir; ?>/images/dark-mode.svg'"
-                    alt="Dark mode" title="Dark mode" />
+                <img :src="$store.darkMode.on ? '<?= $assets_dir; ?>/images/light-mode.svg':'<?= $assets_dir; ?>/images/dark-mode.svg'" alt="Dark mode" title="Dark mode" />
             </button>
             <button id="preview" class="btn btn-default">
-                <img :src="!$store.navs.preview ? '<?= $assets_dir; ?>/images/eye.svg':'<?= $assets_dir; ?>/images/eyeblue.svg'"
-                    alt="Toggle preview" title="Toggle preview" />
+                <img :src="!$store.navs.preview ? '<?= $assets_dir; ?>/images/eye.svg':'<?= $assets_dir; ?>/images/eyeblue.svg'" alt="Toggle preview" title="Toggle preview" />
             </button>
 
             <button x-show="!$store.navs.preview" id="edit" class="btn btn-default">Edit</button>
@@ -141,9 +117,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
 
                 <div class="nav">
                     <template x-for="(item,index) in $store.blocklist.getItems()">
-                        <div x-bind:id="item.key" class="side"
-                            :class="$store.blocklist.current == item.key ? 'nav-active':'nav-disabled'"
-                            x-text="item.title" @click="$store.blocklist.setCurrent(item.key)">
+                        <div x-bind:id="item.key" class="side" :class="$store.blocklist.current == item.key ? 'nav-active':'nav-disabled'" x-text="item.title" @click="$store.blocklist.setCurrent(item.key)">
                         </div>
                     </template>
                 </div>
@@ -156,13 +130,10 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
 
                             <template x-for="blockItem in item.blocks">
 
-                                <div class="blockelem create-flowy noselect" x-bind:x-data="$store.blocklist.stringify"
-                                    x-bind:class="`${blockItem.key} ${blockItem.group ?? item.key} ${blockItem.shape ?? ''}`">
+                                <div class="blockelem create-flowy noselect" x-bind:x-data="$store.blocklist.stringify" x-bind:class="`${blockItem.key} ${blockItem.group ?? item.key} ${blockItem.shape ?? ''}`">
 
-                                    <input type="hidden" name='blockelemtype' class="blockelemtype"
-                                        x-bind:value="blockItem.key">
-                                    <input type="hidden" name='blockelemgroup' class="blockelemgroup"
-                                        x-bind:value="blockItem.group">
+                                    <input type="hidden" name='blockelemtype' class="blockelemtype" x-bind:value="blockItem.key">
+                                    <input type="hidden" name='blockelemgroup' class="blockelemgroup" x-bind:value="blockItem.group">
 
                                     <div class="grabme">
                                         <img src="<?= $assets_dir; ?>/images/grabme.svg">
@@ -233,8 +204,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
                     </div>
                     <div id="proplist">
                         <p class="input-label">Name</p>
-                        <input aria-label="automation title" name="title" type="text"
-                            x-model="$store.automation.title" />
+                        <input aria-label="automation title" name="title" type="text" x-model="$store.automation.title" />
                     </div>
                 </div>
 
@@ -244,7 +214,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
 
                     <!-- list component-->
                     <template x-component="list">
-                        <div x-data="{ ...$el.parentElement.props }">
+                        <div x-data="{ ...$el.parentElement.props }" x-on:global-lists-load.window="if(typeof global_list_key !== 'undefined') items=$event.detail[global_list_key]">
                             <label x-text="label"></label>
                             <select :name="name" onchange="onListHasChange(this)" data-onmanualupdate="onListHasChange">
                                 <template x-for="item in items">
@@ -256,7 +226,8 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
 
                     <!-- mail list component-->
                     <template x-component="mail-list">
-                        <x-list x-data="{ ...MailListComponent(), ...$el.parentElement.props }"></x-list>
+                        <x-list x-data="{ ...MailListComponent(), ...$el.parentElement.props,...{global_list_key:'mail_list'} }">
+                        </x-list>
                     </template>
 
                     <!-- campaign list component -->
@@ -305,8 +276,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
                             }">
                             <label>
                                 <span x-text="label"></span>
-                                <input :type="type" :value="value" x-bind:title="value" :name="name"
-                                    :disabled="disabled" :readonly="readonly" />
+                                <input :type="type" :value="value" x-bind:title="value" :name="name" :disabled="disabled" :readonly="readonly" />
                             </label>
                         </div>
                     </template>
@@ -363,12 +333,10 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
             <div class="right-card-footer" x-show="!$store.canvas.selectedBlock">
                 <div class="divider spacer"></div>
                 <div class="flex">
-                    <button id="importModalBtn" type="button" class="btn btn-default deselect"
-                        @click="$store.navs.toggle('import')">
+                    <button id="importModalBtn" type="button" class="btn btn-default deselect" @click="$store.navs.toggle('import')">
                         Import
                     </button>
-                    <button id="export" type="button" class="btn btn-default deselect"
-                        @click="$store.navs.toggle('export')">
+                    <button id="export" type="button" class="btn btn-default deselect" @click="$store.navs.toggle('export')">
                         Export
                     </button>
                 </div>
@@ -388,8 +356,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
         <!-- import modal -->
         <x-modal data-x-modal='import' data-x-title="Import from text">
             <div>
-                <textarea id="import-box" aria-label="flow content"
-                    placeholder="Paste your canvas content here"></textarea>
+                <textarea id="import-box" aria-label="flow content" placeholder="Paste your canvas content here"></textarea>
                 <button id="import" type="button" class="btn btn-primary">
                     Import
                 </button>

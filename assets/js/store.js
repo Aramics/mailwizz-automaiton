@@ -1,4 +1,4 @@
-document.addEventListener( 'alpine:init', () => {
+document.addEventListener( 'alpine:init', async () => {
 
     //block management store
     Alpine.store( 'blocklist', {
@@ -118,15 +118,12 @@ document.addEventListener( 'alpine:init', () => {
         label: 'Select an URL',
         name: 'url',
         items: [],
-        fetchCampaignUrls ( uid, urlId ) {
+        async fetchCampaignUrls ( campaignId ) {
             //make api call,
-            //set the data
-            this.items = [
-                { 'label': '---', key: '0' },
-                { 'label': 'Get 50 off' + uid, key: '1' + uid },
-                { 'label': 'Get 20 off' + uid, key: '2' + uid },
-                { 'label': 'Get 30 off' + uid, key: '3' + uid }
-            ];
+            let resp = await automationHttpRequest( `${CAMPAIGN_TEMPLATE_URLS_FETCH_URL}?campaign_id=${campaignId}`, 'GET' );
+
+            if ( resp.success )
+                this.items = resp.data;
 
             //trigger change on component
             setTimeout( () => {
@@ -135,12 +132,42 @@ document.addEventListener( 'alpine:init', () => {
         },
         init () {
 
+            this.items = [{ 'label': 'loading...', key: '0' }];
+
             document.addEventListener( 'campaign-change', ( e ) => {
 
-                this.fetchCampaignUrls( e.detail.campaignId, e.detail.urlId );
+                this.fetchCampaignUrls( e.detail.campaignId );
             }, false );
         }
     } );
+
+    //One time loading of list component items such as campaign, email list e.t.c to reduce network call
+    Alpine.store( 'global_lists', {
+        mail_list: [],
+        campaigns: [],
+
+        async init () {
+            let resp = await automationHttpRequest( MAIL_LISTS_FETCH_URL, 'GET' );
+            if ( resp.success )
+                this.mail_list = resp.data;
+
+
+            resp = await automationHttpRequest( CAMPAIGNS_FETCH_URL, 'GET' );
+            if ( resp.success )
+                this.campaigns = resp.data;
+
+            let event = new CustomEvent( "global-lists-load", {
+                detail: {
+                    mail_list: this.mail_list,
+                    campaigns: this.campaigns
+                }
+            } );
+
+            //notify components to update with respective "global_list_key"
+            window.dispatchEvent( event );
+        }
+    } );
+
 } );
 
 //usemodal
@@ -168,39 +195,10 @@ function componentShouldUpdate ( event = '' ) {
 //called on every chage to list component
 function onListHasChange ( selectElement ) {
 
+    //this allow for dependent list on campaign -> url selection.
     if ( selectElement.name == "campaign-with-url" ) {
         campaignSelectionChange( selectElement )
     }
-}
-
-function MailListComponent () {
-    return {
-        label: 'Select an audience',
-        name: 'mail-list',
-        items: [
-            { 'label': '---', key: '0' },
-            { 'label': 'Demo list', key: '14543234' },
-            { 'label': 'Demo list2', key: '2454973234' },
-            { 'label': 'Demo list3', key: '332543234' }
-        ]
-    }
-}
-
-function CampaignListComponent () {
-    return {
-        label: '',
-        name: 'campaign',
-        items: [
-            { 'label': '---', key: '0' },
-            { 'label': 'Welcome email', key: '1' },
-            { 'label': 'Welcome email2', key: '2' },
-            { 'label': 'Good bye', key: '3' }
-        ]
-    }
-}
-
-function UrlListComponent () {
-    return Alpine.store( 'url' );
 }
 
 function campaignSelectionChange ( element ) {
@@ -214,6 +212,27 @@ function campaignSelectionChange ( element ) {
     document.dispatchEvent( event );
 }
 
+function MailListComponent () {
+    return {
+        label: 'Select an audience',
+        name: 'mail-list',
+        global_list_key: 'mail_list',
+        items: [],
+    };
+}
+
+function CampaignListComponent () {
+    return {
+        label: 'Select',
+        name: 'campaign',
+        global_list_key: 'campaigns', //
+        items: []
+    };
+}
+
+function UrlListComponent () {
+    return Alpine.store( 'url' );
+}
 //Input pari repeat component
 function InputPairRepeat () {
 

@@ -10,14 +10,6 @@ class AutomationExtCustomerController extends Controller
     // the extension instance
     public $extension;
 
-    // the init
-    public function init()
-    {
-        $this->getData('pageScripts')->add(array('src' => AssetsUrl::js('campaigns.js')));
-        $this->onBeforeAction = array($this, '_registerJuiBs');
-        parent::init();
-    }
-
     /**
      * @inheritDoc
      */
@@ -27,16 +19,16 @@ class AutomationExtCustomerController extends Controller
     }
 
     /**
-     * Define the filters for various controller actions
-     * Merge the filters with the ones from parent implementation
+     * @return array
      */
-    public function filters()
+    public function accessRules()
     {
-        $filters = array(
-            'postOnly + delete',
-        );
-
-        return CMap::mergeArray($filters, parent::filters());
+        return [
+            // allow all authenticated users on all actions
+            ['allow', 'users' => ['@']],
+            // deny all rule.
+            ['deny'],
+        ];
     }
 
     /**
@@ -143,6 +135,41 @@ class AutomationExtCustomerController extends Controller
 
         $this->render('form', compact('automation'));
     }
+    /**
+     * Update existing automation
+     */
+    public function actionCanvasTest($id)
+    {
+        $customer = Yii::app()->customer->getModel();
+        $request = Yii::app()->request;
+        $notify  = Yii::app()->notify;
+        $automation = AutomationExtModel::model()->findByAttributes(array(
+            'automation_id'   => (int)$id,
+            'customer_id' => (int)$customer->customer_id,
+        ));
+
+        $message = '';
+
+        //invalid automation id
+        if (empty($automation)) {
+
+            $message = Yii::t('app', 'The requested page does not exist.');
+
+            if ($request->getIsAjaxRequest()) {
+
+                $this->renderJson([
+                    'success' => false,
+                    'message' => $message
+                ], 404);
+                return;
+            }
+
+            throw new CHttpException(404, $message);
+        }
+        $canvas = new AutomationExtCanvas($automation->canvas_data);
+        dd($canvas->tree());
+        $automation->__process([]);
+    }
 
     /**
      * Update existing automation
@@ -157,39 +184,134 @@ class AutomationExtCustomerController extends Controller
             'customer_id' => (int)$customer->customer_id,
         ));
 
+        $message = '';
+
+        //invalid automation id
         if (empty($automation)) {
-            throw new CHttpException(404, Yii::t('app', 'The requested page does not exist.'));
+
+            $message = Yii::t('app', 'The requested page does not exist.');
+
+            if ($request->getIsAjaxRequest()) {
+
+                $this->renderJson([
+                    'success' => false,
+                    'message' => $message
+                ], 404);
+                return;
+            }
+
+            throw new CHttpException(404, $message);
         }
 
+
+        //automation cant be updated cron_running or hidden status
         if (!$automation->getCanBeUpdated()) {
+
+            $message = $this->extension->t('Automation can not be updated at this time');
+
+            if ($request->getIsAjaxRequest()) {
+                $this->renderJson([
+                    'success' => false,
+                    'message' => $message,
+                ]);
+                return;
+            }
+
+            $notify->addWarning($this->extension->t($message));
             $this->redirect(array('automations/index'));
         }
 
 
+        //Cron locked
         if ($automation->getIsLocked()) {
-            $notify->addWarning($this->extension->t('This automation is locked, you cannot change or delete it!'));
+
+            $message = 'This automation is locked, you cannot change or delete it!';
+
+            if ($request->getIsAjaxRequest()) {
+                $this->renderJson([
+                    'success' => false,
+                    'message' => $this->extension->t($message)
+                ]);
+                return;
+            }
+
+            $notify->addWarning($this->extension->t($message));
             $this->redirect(array('automations/index'));
         }
 
-        if ($request->isPostRequest && ($attributes = (array)$request->getPost($automation->modelName, array()))) {
 
-            $automation->attributes = $attributes;
-            $automation->customer_id = $customer->customer_id;
+        //post request submission handling
+        if ($request->isPostRequest) {
 
-            if (!$automation->save()) {
-                $notify->addError(Yii::t('app', 'Your form has a few errors, please fix them and try again!'));
-            } else {
-                $notify->addSuccess(Yii::t('app', 'Your form has been successfully saved!'));
+            $attributes = $request->getOriginalPost('', []);
+            if ($attributes && isset($attributes[$automation->modelName]))
+                $attributes = $automation->modelName;
+
+            $attributes = (array)$attributes;
+
+            $message = $this->extension->t('Invalid data structure');
+            $success = false;
+
+            if (!empty($attributes)) {
+
+                $title = $attributes['title'];
+                $canvas_data = $attributes['canvas_data'];
+
+                try {
+
+                    //create and validate canvas or throw exception.
+                    $canvas = new AutomationExtCanvas($canvas_data);
+                    $trigger = $canvas->getTriggerBlockType();
+                    $trigger_value = $canvas->getTriggerBlockValue();
+                    //dd($canvas->getCanvasTree($canvas->getBlocks()));
+                    //dd("");
+
+                    if (!$trigger)
+                        throw new Exception($this->extension->t("Unkown trigger"), 1);
+
+                    if (!$trigger_value)
+                        throw new Exception($this->extension->t("Trigger value is missing"), 1);
+
+
+                    $automation->canvas_data = $canvas_data;
+
+                    $automation->trigger = $trigger;
+                    $automation->trigger_value = trim($trigger_value);
+
+                    if ($title)
+                        $automation->title = $title;
+
+                    if (!$automation->save()) {
+
+                        $message = Yii::t('app', 'Your form has a few errors, please fix them and try again!');
+                        $notify->addError($message);
+                    } else {
+
+                        $message = Yii::t('app', 'Your form has been successfully saved!');
+                        $notify->addSuccess($message);
+                    }
+
+                    Yii::app()->hooks->doAction('controller_action_save_data', $collection = new CAttributeCollection(array(
+                        'controller' => $this,
+                        'success'    => $notify->hasSuccess,
+                        'automation'     => $automation,
+                    )));
+
+                    if ($collection->success) {
+
+                        $success = true;
+                    }
+                } catch (\Throwable $th) {
+
+                    $message = $th->getMessage();
+                    $notify->addError($message);
+                }
             }
 
-            Yii::app()->hooks->doAction('controller_action_save_data', $collection = new CAttributeCollection(array(
-                'controller' => $this,
-                'success'    => $notify->hasSuccess,
-                'automation'     => $automation,
-            )));
-
-            if ($collection->success) {
-            }
+            return $this->renderJson([
+                'success' => $success,
+                'message' => $message
+            ]);
         }
 
 
@@ -202,8 +324,16 @@ class AutomationExtCustomerController extends Controller
             )
         ));
 
-        $view = $this->getViewFile('canvas');
-        $this->renderFile($view, compact('automation'));
+
+        $cs = clientScript();
+        $cs->reset();
+
+        if (request()->enableCsrfValidation) {
+            $cs->registerMetaTag(request()->csrfTokenName, 'csrf-token-name');
+            $cs->registerMetaTag(request()->getCsrfToken(), 'csrf-token-value');
+        }
+
+        $this->renderPartial('canvas', compact('automation'), false, true);
     }
 
     /**
@@ -434,15 +564,159 @@ class AutomationExtCustomerController extends Controller
         Yii::app()->end();
     }
 
-    /**
-     * Callback to register Jquery ui bootstrap only for certain actions
-     */
-    public function _registerJuiBs($event)
+
+    public function actionCampaigns($id)
     {
-        if (in_array($event->params['action']->id, array('create', 'update'))) {
-            $this->getData('pageStyles')->mergeWith(array(
-                array('src' => Yii::app()->apps->getBaseUrl('assets/css/jui-bs/jquery-ui-1.10.3.custom.css'), 'priority' => -1001),
-            ));
+
+        $customer = Yii::app()->customer->getModel();
+        $automation = AutomationExtModel::model()->findByAttributes(array(
+            'automation_id'   => (int)$id,
+            'customer_id' => (int)$customer->customer_id,
+        ));
+
+        $message = '';
+
+        //invalid automation id
+        if (empty($automation)) {
+
+            $message = Yii::t('app', 'The requested page does not exist.');
+
+            $this->renderJson([
+                'success' => false,
+                'message' => $message
+            ], 404);
+
+            return;
         }
+
+        $criteria = new CDbCriteria();
+        $criteria->compare('customer_id', (int)$automation->customer_id);
+        $criteria->addNotInCondition('status', [Campaign::STATUS_PENDING_DELETE]);
+        $criteria->order    = 't.campaign_id DESC';
+        $criteria->limit    = 1000;
+
+
+        $data = [];
+        $campaigns = Campaign::model()->findAll($criteria);
+
+        foreach ($campaigns as $campaign) {
+
+            $campaign = $campaign->getAttributes(['campaign_uid', 'type', 'name', 'status']);
+            $campaign['key'] = $campaign['campaign_uid'];
+            $campaign['label'] = $campaign['name'];
+            $data[] = $campaign;
+        }
+
+        $this->renderJson([
+            'success' => true,
+            'data'      => $data,
+        ]);
+    }
+
+    public function actionLists($id)
+    {
+
+        $customer = Yii::app()->customer->getModel();
+        $automation = AutomationExtModel::model()->findByAttributes(array(
+            'automation_id'   => (int)$id,
+            'customer_id' => (int)$customer->customer_id,
+        ));
+
+        $message = '';
+
+        //invalid automation id
+        if (empty($automation)) {
+
+            $message = Yii::t('app', 'The requested page does not exist.');
+
+            $this->renderJson([
+                'success' => false,
+                'message' => $message
+            ], 404);
+
+            return;
+        }
+
+        $criteria = new CDbCriteria();
+        $criteria->compare('customer_id', (int)$automation->customer_id);
+        $criteria->addNotInCondition('status', [Lists::STATUS_PENDING_DELETE, Lists::STATUS_ARCHIVED]);
+        $criteria->order    = 't.list_id DESC';
+        $criteria->limit    = 1000;
+
+        $data = [];
+
+        $lists = Lists::model()->findAll($criteria);
+
+        foreach ($lists as $list) {
+
+            $list = $list->getAttributes(['list_uid', 'name']);
+            $list['label'] = $list['name'];
+            $list['key'] = $list['list_uid'];
+            $data[] = $list;
+        }
+
+        $this->renderJson([
+            'success' => true,
+            'data'      => $data,
+        ]);
+    }
+
+    public function actionCampaign_urls($id)
+    {
+
+        $customer = Yii::app()->customer->getModel();
+        $automation = AutomationExtModel::model()->findByAttributes(array(
+            'automation_id'   => (int)$id,
+            'customer_id' => (int)$customer->customer_id,
+        ));
+        $request = Yii::app()->request;
+
+        $message = '';
+
+        //invalid automation id
+        if (empty($automation)) {
+
+            $message = Yii::t('app', 'The requested page does not exist.');
+
+            $this->renderJson([
+                'success' => false,
+                'message' => $message
+            ], 404);
+
+            return;
+        }
+
+        $campaign_uid = $request->getQuery('campaign_id', '');
+        $campaign = Campaign::model()->findByUid($campaign_uid);
+
+        $data = [];
+        foreach ($campaign->urls as $url) {
+            $destination = $url->attributes['destination'];
+            if (!in_array(pathinfo($destination, PATHINFO_EXTENSION), ['png', 'css', 'js', 'jpg', 'gif', 'jpeg']))
+                $data[] = ['key' => $url->attributes['url_id'], 'label' => $destination];
+        }
+
+        $this->renderJson([
+            'success' => true,
+            'data'      => $data,
+        ]);
+    }
+
+    /**
+     * This method ensure json is return even in debug mode. It disable yii log getting returned with json content.
+     * 
+     * @return
+     */
+    public function renderJson($data = [], $statusCode = 200, array $headers = [], $callback = null)
+    {
+        foreach (Yii::app()->log->routes as $route) {
+
+            if ($route instanceof CWebLogRoute) {
+
+                $route->enabled = false;
+            }
+        }
+
+        parent::renderJson($data, $statusCode, $headers, $callback);
     }
 }
