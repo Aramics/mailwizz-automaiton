@@ -11,6 +11,12 @@ defined('MW_PATH') || exit('No direct script access allowed');
  */
 class AutomationExtCanvas
 {
+    /**
+     * Automation model for the Canvas
+     *
+     * @var AutomationExtModel
+     */
+    public $automation;
 
     //a canvas is expected to look like this:
     /**
@@ -39,6 +45,14 @@ class AutomationExtCanvas
      **/
     private $canvas;
 
+
+    /**
+     * Block list
+     *
+     * @var AutomationExtBlock[]
+     */
+    private $blocks = [];
+
     /**
      * Map for block id against canvas index location
      *
@@ -46,11 +60,14 @@ class AutomationExtCanvas
      */
     private $blockIdIndexMap = [];
 
+    public $verbose = true;
 
-    public function __construct(string $canvas_data, bool $validate = true)
+
+    public function __construct(AutomationExtModel $automation, bool $validate = true)
     {
 
-        $this->canvas = (object)json_decode($canvas_data);
+        $this->automation = $automation;
+        $this->canvas = (object)json_decode($automation->canvas_data);
 
         if ($validate) {
             //check and find canvas
@@ -61,6 +78,12 @@ class AutomationExtCanvas
         }
 
         return $this;
+    }
+
+    public function debug($message)
+    {
+        if ($this->verbose)
+            echo $message;
     }
 
     /**
@@ -81,13 +104,18 @@ class AutomationExtCanvas
             return Yii::t('ext_automation', 'Canvas required minimum of 2 blocks');
         }
 
-        if ($this->getBlockGroup($this->getTriggerBlock()) != "triggers") {
+        $trigger_block = new AutomationExtBlock($this->canvas->blocks[0]);
+        if ($trigger_block->getGroup() != "triggers") {
 
             return Yii::t('ext_automation', 'Trigger is required!');
         }
 
         //validate blocks and it arrangments
         foreach ($this->canvas->blocks as $index => $block) {
+
+            //make block instance
+            $block = new AutomationExtBlock($block);
+            $this->blocks[$index] = $block;
 
             $parent_block = $this->getBlockParent($block);
 
@@ -101,85 +129,32 @@ class AutomationExtCanvas
 
             //block id from UI, while beign integer, it is not order arrange rather follows 
             //order of block insertion. Maintaining index map makes lookup easier using id.
-            $block_id = $this->getBlockId($block);
+            $block_id = $block->getId();
             $this->blockIdIndexMap[$block_id] = $index;
         }
 
         return true;
     }
 
+    public function run($params = [])
+    {
+        $tree = $this->tree();
+        $this->runNode($tree, $params);
+        dd($tree);
+    }
+
     public function tree()
     {
         $trigger = $this->getTriggerBlock();
+        //ensure trigger is not a tree
         $node = $this->buildNode($trigger, [], false);
-
-        $this->runNode($node);
         return $node;
     }
 
-    private function runNode($node)
-    {
-        $node_key = array_keys($node);
-
-        //Two case: either yesNo siblings or non yesNo siblings.
-        foreach ($node_key as $key) {
-            //has siblings
-            if ($this->runBlock($key, count($node_key) > 1) == false)
-                return;
-
-            //run children if true reutrn above.
-            $node_key = $this->runNode($node[$key]);
-        }
-    }
-
-    private function runBlock($blockId, $hasSiblings = false)
-    {
-
-
-        $block = $this->getBlockById($blockId);
-        $blockType = $this->getBlockType($block);
-        $blockGroup = $this->getBlockGroup($block);
-
-        //skip for triggers blocks
-        if ($blockGroup == AutomationExtBlockGroups::TRIGGER) {
-            echo "Skipping trigger";
-            return true;
-        }
-
-        echo "Processing- " . ($hasSiblings ? "(with siblings)" : '') . ": $blockId <br/>";
-
-        return true;
-
-
-        //logic block and its evaluation
-        $yesNo = [AutomationExtBlockTypes::YES, AutomationExtBlockTypes::NO];
-        $blockIsYesNo = $blockGroup == AutomationExtBlockGroups::LOGIC && in_array($blockType, $yesNo);
-        if ($blockIsYesNo) {
-            //evaluate parent
-            //YES OR NO....Determine branch to follow.i.e evaluate
-            $parent = $this->getBlockParent($block);
-            $evaluation = (new AutomationExtEvaluate($parent));
-            $blockValue = $blockType == AutomationExtBlockTypes::YES ? true : false;
-            if ($evaluation != $blockValue) {
-                //evaluation wrong, cant continue; skip this subtree/node move to another branch
-                return false;
-            }
-            //base on the out come of the evaluation, determine if we continue or exit the tree.
-        }
-
-
-        //wait block and its evaluation
-        if ($blockType == AutomationExtBlockTypes::WAIT) {
-        }
-
-
-        return true;
-    }
-
-    private function buildNode($block, $prevNode, $namedIndex = false)
+    private function buildNode(AutomationExtBlock $block, array $prevNode, bool $namedIndex = false)
     {
         $children = $this->getBlockChildren($block);
-        $blockId = $namedIndex ? $this->getBlockType($block) : $block->id;
+        $blockId = $namedIndex ? $block->getType() : $block->id;
         $prevNode[$blockId] = [];
 
         foreach ($children as $childId) {
@@ -187,7 +162,7 @@ class AutomationExtCanvas
             $childBlock = $this->getBlockById($childId);
 
             if ($namedIndex) //subtitle
-                $childId = $this->getBlockType($childBlock);
+                $childId = $childBlock->getType();
 
             $prevNode[$blockId][$childId] = [];
 
@@ -201,7 +176,7 @@ class AutomationExtCanvas
     }
 
 
-    function getBlockChildren($block)
+    private function getBlockChildren(object $block)
     {
         $c = [];
         foreach ($this->getBlocks() as $b) {
@@ -211,24 +186,94 @@ class AutomationExtCanvas
         return $c;
     }
 
+    private function runNode($node, $params)
+    {
+        $node_key = array_keys($node);
+
+        //Two case: either yesNo siblings or non yesNo siblings.
+        foreach ($node_key as $key) {
+            //has siblings
+            if ($this->runBlock($key, $params, count($node_key) > 1) == false) {
+                $this->debug("Skipping the branch, run next sibling/branch<br/>");
+                continue;
+            }
+            //return;
+
+            //run children if true reutrn above.
+            $this->runNode($node[$key], $params);
+        }
+    }
+
+    private function runBlock($blockId, $params, $hasSiblings = false)
+    {
+
+        $block = $this->getBlockById($blockId);
+        $blockType = $block->getType();
+        $blockGroup = $block->getGroup();
+
+        $subscriber = $params['subscriber'];
+        $automationId = $params['automation_id'];
+        //check if executed.
+        $c_criteria = new CDbCriteria();
+        if ($subscriber) {
+            $c_criteria->compare('subject_id', $subscriber->subscriber_uid);
+            $c_criteria->compare('subject_type', 'subscriber');
+        }
+        $c_criteria->compare('canvas_block_id', (int)$blockId);
+        $c_criteria->compare('automation_id', $automationId);
+        $log = AutomationExtLogModel::model()->find($c_criteria);
+
+        if (!$log) {
+
+            $log = new AutomationExtLogModel();
+            $log->automation_id = $automationId;
+            $log->canvas_block_id = $blockId;
+            $log->subject_id = $subscriber ? $subscriber->subscriber_uid : NULL;
+            $log->subject_type = $subscriber ? 'subscriber' : NULL;
+            $log->status = AutomationExtModel::STATUS_DRAFT;
+            //$log->last_run =
+            //if (!$log->save()) {
+            //    throw new Exception("Error saving automation:$automationId log for block:$blockId", 1);
+            //}
+        }
+
+        if ($log->status == AutomationExtModel::STATUS_CRON_RUNNING) {
+            //move to anothe branch or break;
+        }
+
+        $this->debug("Processing- " . ($hasSiblings ? "(with siblings)" : '') . ": $blockId - $blockType - $blockGroup<br/>");
+
+        //skip for triggers blocks
+        if ($blockGroup == AutomationExtBlockGroups::TRIGGER) {
+            $this->debug("Skipping trigger");
+            return true;
+        }
+
+        //skip for triggers blocks
+        if ($blockGroup == AutomationExtBlockGroups::ACTION) {
+            $actionRunner = new AutomationExtBlockGroupAction($this);
+            return $actionRunner->run($block, $subscriber);
+        }
+
+
+        //skip for triggers blocks
+        if ($blockGroup == AutomationExtBlockGroups::LOGIC) {
+            $logicRunner = new AutomationExtBlockGroupLogic($this);
+            return $logicRunner->run($block, $subscriber);
+        }
+
+        throw new Exception("Unkown block type: $blockType <br/>", 1);
+    }
+
+
     public function getTriggerBlock()
     {
-        return $this->canvas->blocks[0]; //first block must be trigger
-    }
-
-    public function getTriggerBlockValue()
-    {
-        return $this->getBlockDataValueByName("trigger_value", $this->getTriggerBlock());
-    }
-
-    public function getTriggerBlockType()
-    {
-        return $this->getBlockType($this->getTriggerBlock());
+        return $this->blocks[0]; //first block must be the trigger
     }
 
     public function getBlocks()
     {
-        return $this->canvas->blocks;
+        return $this->blocks;
     }
 
     public function getBlockIndexById($blockId)
@@ -239,11 +284,8 @@ class AutomationExtCanvas
     public function getBlockById(int $blockId)
     {
         $index = $this->getBlockIndexById($blockId);
-        return $this->getBlocks()[$index] ?? NULL;
-    }
-
-    public function getBlockValues()
-    {
+        $block = $this->getBlocks()[$index];
+        return $block ?? NULL;
     }
 
     /**
@@ -262,80 +304,16 @@ class AutomationExtCanvas
         return $this->getBlockById($parentId);
     }
 
-    /**
-     * Get block group from the block object
-     *
-     * @param object $block
-     * @return string
-     */
-    public function getBlockGroup(object $block)
-    {
-        $group = $this->getBlockDataValueByName("blockelemgroup", $block); //should return triggers, action or logic
-        return in_array($group, AutomationExtBlockGroups::getConstants()) ? trim($group) : '';
-    }
 
-    /**
-     * Get block type from the block object
-     *
-     * @param object $block
-     * @return string
-     */
-    public function getBlockType(object $block)
-    {
-
-        $blockType = $this->getBlockDataValueByName("blockelemtype", $block);
-        return in_array($blockType, AutomationExtBlockTypes::getConstants()) ? trim($blockType) : '';
-    }
-
-    /**
-     * Get block id from the block object
-     *
-     * @param object $block
-     * @return int
-     */
-    public function getBlockId(object $block)
-    {
-        return $block->id;
-    }
-
-    /**
-     * Get block parent (id) from the block object
-     *
-     * @param object $block
-     * @return int
-     */
-    public function getBlockParentId(object $block)
-    {
-        return $block->parent;
-    }
-
-    /**
-     * Get block data value from the block object
-     *
-     * @param string $name
-     * @param object|null $block
-     * @return string
-     */
-    public function getBlockDataValueByName(string $name, object $block = null)
-    {
-
-        foreach ($block->data as $row) {
-            if ($row->name == $name) {
-                return $row->value;
-            }
-        }
-
-        return '';
-    }
 
     /**
      * Validate canvas block.
      *
-     * @param object $block
-     * @param object $parent . The parent block to the current block. NULL for triggers
+     * @param AutomationExtBlock $block
+     * @param AutomationExtBlock|null $parent . The parent block to the current block. NULL for triggers
      * @return string|true
      */
-    public function validateBlock($block, $parent = null)
+    public function validateBlock(AutomationExtBlock $block, AutomationExtBlock $parent = null)
     {
         //validate structure.
         if (!isset($block->id) || !isset($block->parent) || !isset($block->data)) {
@@ -343,8 +321,9 @@ class AutomationExtCanvas
             return Yii::t('ext_automation', 'Invalid block structure on canvas');
         }
 
-        $blockGroup = $this->getBlockGroup($block);
-        $blockType = $this->getBlockType($block);
+        $block = new AutomationExtBlock($block);
+        $blockGroup = $block->getGroup();
+        $blockType = $block->getType();
 
 
         if (!$blockGroup) {
@@ -369,8 +348,9 @@ class AutomationExtCanvas
 
         if ($parent) {
 
-            $parentGroup = $this->getBlockGroup($parent);
-            $parentType = $this->getBlockType($parent);
+            $parent = new AutomationExtBlock($parent);
+            $parentGroup = $parent->getGroup();
+            $parentType = $parent->getType();
 
             if (!$blockGroup) {
 

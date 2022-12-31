@@ -200,6 +200,8 @@ document.addEventListener("DOMContentLoaded", function () {
 	 *    <x-mail-list data-label="Custom label select mail"></x-mail-list>
 	 *    ...
 	 * </div>
+	 *
+	 * The generated components are injected into right side bar for editing blocks data.
 	 */
 	const COMPONENT_SELECTOR = "x-component";
 	const COMPONENT_NAME_PREFIX = "x-";
@@ -852,11 +854,11 @@ document.addEventListener("DOMContentLoaded", function () {
 			saveFlow();
 		});
 		addCustomEventListener("#removeblocks", "click", removeAllBlocks);
-		addCustomEventListener(
-			"#components",
-			"change",
-			setBlockPropertiesValue
-		);
+		addCustomEventListener("#components", "change", (event) => {
+			setTimeout(() => {
+				setBlockPropertiesValue(event);
+			}, 100); //adding this delay helps with input with resulting value from other inputs i.e value from x-model or function return
+		});
 		addClickEventOnly(
 			canvas,
 			(event) => {

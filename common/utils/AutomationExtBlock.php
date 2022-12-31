@@ -2,16 +2,92 @@
 
 defined('MW_PATH') || exit('No direct script access allowed');
 
-abstract class AutomationExtBlock
+/**
+ * This class describe a Canvas block.
+ */
+class AutomationExtBlock
 {
-    final public static function getConstants()
+    public $id;
+
+    public function __construct(object $block)
     {
-        $refl = new ReflectionClass(static::class);
-        return $refl->getConstants();
+        foreach ($block as $key => $value) $this->{$key} = $value;
     }
 
-    final public static function getConstantsJson()
+
+    /**
+     * Get block group from the block object
+     *
+     * @return string
+     */
+    public function getGroup()
     {
-        return json_encode(self::getConstants());
+        $group = $this->getDataByName("blockelemgroup"); //should return triggers, action or logic
+        return in_array($group, AutomationExtBlockGroups::getConstants()) ? trim($group) : '';
+    }
+
+    /**
+     * Get block type from the block object
+     *
+     * @return string
+     */
+    public function getType()
+    {
+
+        $blockType = $this->getDataByName("blockelemtype");
+        return in_array($blockType, AutomationExtBlockTypes::getConstants()) ? trim($blockType) : '';
+    }
+
+    /**
+     * Get block id from the block object
+     *
+     * @return int
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    /**
+     * Get block parent (id) from the block object
+     *
+     * @return int
+     */
+    public function getParentId()
+    {
+        return $this->parent;
+    }
+
+    public function getData()
+    {
+        $data = [];
+        foreach ($this->data as $row) {
+            $data[$row->name] = $row->value;
+        }
+        return $data;
+    }
+
+    /**
+     * Get block data value from the block object
+     *
+     * @param string $name
+     * @param object|null $block
+     * @return string
+     */
+    public function getDataByName(string $name)
+    {
+
+        foreach ($this->data as $row) {
+            if ($row->name == $name) {
+                return $row->value;
+            }
+        }
+
+        return '';
+    }
+
+    public function getTriggerValue()
+    {
+        return $this->getDataByName("trigger_value");
     }
 }

@@ -1,32 +1,24 @@
 //Interval period
 const INTERVALS = [
 	{
-		key: "s",
+		key: 1,
 		label: "Second(s)",
 	},
 	{
-		key: "i",
+		key: 60,
 		label: "Minute(s)",
 	},
 	{
-		key: "h",
+		key: 60 * 60 * 1,
 		label: "Hour(s)",
 	},
 	{
-		key: "d",
+		key: 24 * 60 * 60 * 1,
 		label: "Day(s)",
 	},
 	{
-		key: "w",
+		key: 7 * 24 * 60 * 60 * 1,
 		label: "Week(s)",
-	},
-	{
-		key: "m",
-		label: "Month(s)",
-	},
-	{
-		key: "y",
-		label: "Year(s)",
 	},
 ];
 
@@ -70,7 +62,7 @@ const BLOCK_TYPES = {
 	MOVE_SUBSCRIBER: "move-subscriber",
 	COPY_SUBSCRIBER: "copy-subscriber",
 	UPDATE_SUBSCRIBER: "update-subscriber",
-	REMOVE_SUBSCRIBER: "remove-subscriber",
+	OTHER_SUBSCRIBER_ACTION: "other-subscriber-action",
 	WEBHOOK_ACTION: "webhook-action",
 	STOP: "stop",
 	YES: "yes",
@@ -84,60 +76,67 @@ const BLOCK_TYPES = {
  * @componentVariable : The block structure support use of component field name in the summary text of the block.
  * i.e for block "open-email", we have "campaign-list" as a component for the block.
  * "campaign-list" component has an input field named "campaign",
- * thus we can reference this field using $campaign ins the "summary" ppt of the block.
+ * thus we can reference this field using $campaign in the "summary" property of the block.
+ *
+ * Triggers should have their final values in filed named "trigger_value"
+ *
+ * Each block should have unique key (in cases where components input names differ)
  */
 
-const commonActions = (group = "") => [
-	{
-		key: BLOCK_TYPES.OPEN_EMAIL,
-		title: "Open email",
-		description: "Open a campaign or an email",
-		icon: ASSETS_PATH + "/images/open-email.svg",
-		shape: "diamond",
-		summary: "$campaign opened",
-		components:
-			group == BLOCK_GROUPS.TRIGGER
+const commonActions = (group = "") => {
+	const isTrigger = group == BLOCK_GROUPS.TRIGGER;
+	const prefix = group ? group + "_" : "";
+	return [
+		{
+			key: prefix + BLOCK_TYPES.OPEN_EMAIL,
+			title: "Open email",
+			description: "Open a campaign or an email",
+			icon: ASSETS_PATH + "/images/open-email.svg",
+			shape: "diamond",
+			summary: "$campaign opened",
+			summary: `${isTrigger ? "$trigger_value" : "$campaign"} opened`,
+			components: isTrigger
 				? [{"campaign-list": {name: "trigger_value"}}]
 				: ["campaign-list"],
-	},
-	{
-		key: BLOCK_TYPES.CLICK_URL,
-		title: "Click URL",
-		description: "Click on certain or any URL in a campaign or an email",
-		shape: "diamond",
-		icon: ASSETS_PATH + "/images/click-url.svg",
-		summary: "$url in $campaign-with-url Clicked",
-		components: [
-			{
-				"campaign-list": {
-					name:
-						group == BLOCK_GROUPS.TRIGGER
-							? "trigger_value"
-							: "campaign-with-url",
-					label: "Select an email",
+		},
+		{
+			key: prefix + BLOCK_TYPES.CLICK_URL,
+			title: "Click URL",
+			description:
+				"Click on certain or any URL in a campaign or an email",
+			shape: "diamond",
+			icon: ASSETS_PATH + "/images/click-url.svg",
+			summary: `${
+				isTrigger ? "$trigger_value" : "$url"
+			} in $campaign-with-url Clicked`,
+			components: [
+				{
+					"campaign-list": {
+						name: "campaign-with-url",
+						label: "Select an email",
+					},
 				},
-			},
-			{
-				"url-list":
-					group == BLOCK_GROUPS.TRIGGER
-						? {name: "trigger_value"}
-						: {},
-			},
-		],
-	},
-	{
-		key: BLOCK_TYPES.REPLY_EMAIL,
-		title: "Reply email",
-		description: "Respond to a certain email or campaign",
-		shape: "diamond",
-		icon: ASSETS_PATH + "/images/reply-email.svg",
-		summary: "$campaign replied to",
-		components:
-			group == BLOCK_GROUPS.TRIGGER
+				{
+					"url-list": isTrigger
+						? {name: "trigger_value", label: ""}
+						: {name: "url"},
+				},
+			],
+		},
+		{
+			key: prefix + BLOCK_TYPES.REPLY_EMAIL,
+			title: "Reply email",
+			description: "Respond to a certain email or campaign",
+			shape: "diamond",
+			icon: ASSETS_PATH + "/images/reply-email.svg",
+			summary: "$campaign replied to",
+			summary: `${isTrigger ? "$trigger_value" : "$campaign"} replied to`,
+			components: isTrigger
 				? [{"campaign-list": {name: "trigger_value"}}]
 				: ["campaign-list"],
-	},
-];
+		},
+	];
+};
 
 const blockList = Object.freeze([
 	{
@@ -149,7 +148,7 @@ const blockList = Object.freeze([
 				title: "List subscription",
 				description: "Welcome automation when a subscriber join.",
 				icon: ASSETS_PATH + "/images/subscribe.svg",
-				summary: "On subscription to $mail-list",
+				summary: "On subscription to $trigger_value",
 				components: [{"mail-list": {label: "", name: "trigger_value"}}],
 			},
 			{
@@ -157,7 +156,7 @@ const blockList = Object.freeze([
 				title: "List unsubscribe",
 				description: "Say goodbye to a customer.",
 				icon: ASSETS_PATH + "/images/unsubscribe.svg",
-				summary: "When unsubscribe from $mail-list",
+				summary: "When unsubscribe from $trigger_value",
 				components: [{"mail-list": {label: "", name: "trigger_value"}}],
 			},
 			{
@@ -166,7 +165,7 @@ const blockList = Object.freeze([
 				description:
 					"Trigger from http call to automation webhook address",
 				icon: ASSETS_PATH + "/images/webhook.svg",
-				summary: "$method to $webhook_endpoint",
+				summary: "$trigger_value to $webhook_endpoint",
 				components: [
 					{
 						input: {
@@ -190,12 +189,12 @@ const blockList = Object.freeze([
 				],
 			},
 			{
-				key: BLOCK_TYPES.SPECIFIC_DATE,
+				key: BLOCK_GROUPS.TRIGGER + BLOCK_TYPES.SPECIFIC_DATE, //requires unique keys
 				title: "Specific date time",
 				description:
 					"Start an automation based on an individual date, like an appointment.",
 				icon: ASSETS_PATH + "/images/date-time.svg",
-				summary: "$date",
+				summary: "$trigger_value",
 				components: [
 					{input: {type: "datetime-local", name: "trigger_value"}},
 				],
@@ -207,7 +206,7 @@ const blockList = Object.freeze([
 				description:
 					"Run action for subscribers base on the date they joined the list.",
 				icon: ASSETS_PATH + "/images/date.svg",
-				summary: "$mail-list",
+				summary: "$trigger_value",
 				components: [{"mail-list": {name: "trigger_value"}}],
 			},
 
@@ -262,7 +261,14 @@ const blockList = Object.freeze([
 					"Send a campaign/autoresponder email content to only the current subscriber.",
 				summary: "to the subscriber - $campaign",
 				icon: ASSETS_PATH + "/images/send-email.svg",
-				components: ["campaign-list"],
+				//components: ["campaign-list"],
+				components: [
+					{
+						"campaign-list": {
+							help: "Send one time email to the subscriber using template/content of the selected campaign.",
+						},
+					},
+				],
 			},
 			{
 				key: BLOCK_TYPES.RUN_CAMPAIGN,
@@ -271,7 +277,14 @@ const blockList = Object.freeze([
 					"Run a campaign to all the campaign list subscribers.",
 				summary: "Start/Run $campaign",
 				icon: ASSETS_PATH + "/images/send-campaign.svg",
-				components: ["campaign-list"],
+				components: [
+					{
+						"campaign-list": {
+							help: "Will run the draft campaign.",
+							global_list_key: "regular_draft_campaigns",
+						},
+					},
+				],
 			},
 			{
 				key: BLOCK_TYPES.MOVE_SUBSCRIBER,
@@ -299,25 +312,35 @@ const blockList = Object.freeze([
 					{
 						"input-pair-repeat": {
 							label: "Fields TAG",
-							help: "You can use list field variable as values i.e [FNAME].",
+							help: "Field name should be list TAGS without bracket i.e '[' and ']'. i.e STATUS",
 						},
 					},
 				],
 			},
 			{
-				key: BLOCK_TYPES.REMOVE_SUBSCRIBER,
-				title: "Remove subscriber",
-				description: "Remove the subscriber from the list",
+				key: BLOCK_TYPES.OTHER_SUBSCRIBER_ACTION,
+				title: "Other subscriber actions",
+				description: "Perform certain action on the subscriber",
 				icon: ASSETS_PATH + "/images/remove.svg",
-				summary: "from the current list",
+				summary: "$action",
+				components: [
+					{
+						list: {
+							label: "Select an action to run",
+							name: "action",
+							global_list_key: "subscriber_actions", //update items store global list
+							items: [{label: "Unsubscribe", key: "unsubscribe"}],
+						},
+					},
+				],
 			},
 			{
 				key: BLOCK_TYPES.WEBHOOK_ACTION,
 				title: "Call webhook",
 				description:
-					"Send data to an endpoint (can be use to start another automation with webhook trigger)",
+					"Send data (JSON body) to an API endpoint (can be use to start another automation with webhook trigger)",
 				icon: ASSETS_PATH + "/images/webhook.svg",
-				summary: "$method to $webhook_endpoint",
+				summary: "$webhook_method to $webhook_endpoint",
 				components: [
 					{
 						input: {
@@ -330,7 +353,7 @@ const blockList = Object.freeze([
 					{
 						list: {
 							label: "Method",
-							name: "method",
+							name: "webhook_method",
 							items: [
 								{label: "GET", key: "get"},
 								{label: "POST", key: "post"},
@@ -340,7 +363,7 @@ const blockList = Object.freeze([
 					{
 						"input-pair-repeat": {
 							label: "Fields",
-							help: "Field name starting with X-HEADER will be passed in the request header only.<br/>You can also use list field variable as values i.e [FNAME]",
+							help: "Field name starting with X- will be passed in the request header only.<br/>You can also use list field variable as values i.e [FNAME]",
 						},
 					},
 				],
@@ -392,11 +415,11 @@ const blockList = Object.freeze([
 				title: "Date",
 				description: "Date arithmetic",
 				icon: ASSETS_PATH + "/images/calender.svg",
-				summary: "$operator $date",
+				summary: "$operator $datetime",
 				shape: "diamond",
 				components: [
 					{operators: {name: "operator"}},
-					{input: {type: "date", name: "date"}},
+					{input: {type: "datetime-local", name: "datetime"}},
 				],
 			},
 			...commonActions(),

@@ -70,7 +70,7 @@ const BLOCK_TYPES = {
 	MOVE_SUBSCRIBER: "move-subscriber",
 	COPY_SUBSCRIBER: "copy-subscriber",
 	UPDATE_SUBSCRIBER: "update-subscriber",
-	REMOVE_SUBSCRIBER: "remove-subscriber",
+	OTHER_SUBSCRIBER_ACTION: "other-subscriber-action",
 	WEBHOOK_ACTION: "webhook-action",
 	STOP: "stop",
 	YES: "yes",
@@ -289,7 +289,7 @@ const blockList = Object.freeze([
 				],
 			},
 			{
-				key: BLOCK_TYPES.REMOVE_SUBSCRIBER,
+				key: BLOCK_TYPES.OTHER_SUBSCRIBER_ACTION,
 				title: "Remove subscriber",
 				description: "Remove the subscriber from the list",
 				icon: ASSETS_PATH + "/images/remove.svg",

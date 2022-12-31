@@ -167,7 +167,7 @@ class AutomationExtCustomerController extends Controller
             throw new CHttpException(404, $message);
         }
         $canvas = new AutomationExtCanvas($automation->canvas_data);
-        dd($canvas->tree());
+        dd($canvas->run(['automation_id' => $automation->automation_id]));
         $automation->__process([]);
     }
 
@@ -261,10 +261,8 @@ class AutomationExtCustomerController extends Controller
 
                     //create and validate canvas or throw exception.
                     $canvas = new AutomationExtCanvas($canvas_data);
-                    $trigger = $canvas->getTriggerBlockType();
-                    $trigger_value = $canvas->getTriggerBlockValue();
-                    //dd($canvas->getCanvasTree($canvas->getBlocks()));
-                    //dd("");
+                    $trigger = $canvas->getTriggerBlock();
+                    $trigger_value = $trigger->getTriggerValue();
 
                     if (!$trigger)
                         throw new Exception($this->extension->t("Unkown trigger"), 1);
@@ -275,7 +273,7 @@ class AutomationExtCustomerController extends Controller
 
                     $automation->canvas_data = $canvas_data;
 
-                    $automation->trigger = $trigger;
+                    $automation->trigger = $trigger->getType();
                     $automation->trigger_value = trim($trigger_value);
 
                     if ($title)
@@ -596,15 +594,32 @@ class AutomationExtCustomerController extends Controller
         $criteria->limit    = 1000;
 
 
-        $data = [];
+        $data = [
+            'campaigns_templates' => [],
+            'regular_draft_campaigns' => [],
+        ];
+
         $campaigns = Campaign::model()->findAll($criteria);
 
         foreach ($campaigns as $campaign) {
+            if (!empty($campaign->template->content)) {
 
-            $campaign = $campaign->getAttributes(['campaign_uid', 'type', 'name', 'status']);
-            $campaign['key'] = $campaign['campaign_uid'];
-            $campaign['label'] = $campaign['name'];
-            $data[] = $campaign;
+                $isDraft = false;
+                $isAutoresponder = $campaign->getIsAutoresponder();
+                if ($campaign->getIsDraft())
+                    $isDraft = $campaign;
+
+                $campaign = $campaign->getAttributes(['campaign_id', 'type', 'name', 'status']);
+                $campaign['key'] = $campaign['campaign_id'];
+                $campaign['label'] = $campaign['name'];
+
+                //list of campaigns which templates can be used for sending transactional email.
+                $data['campaigns_templates'][] = $campaign;
+
+                //we dont want to run autoresponders as campaign
+                if ($isDraft && !$isAutoresponder)
+                    $data['regular_draft_campaigns'][] = $campaign;
+            }
         }
 
         $this->renderJson([
@@ -649,9 +664,9 @@ class AutomationExtCustomerController extends Controller
 
         foreach ($lists as $list) {
 
-            $list = $list->getAttributes(['list_uid', 'name']);
+            $list = $list->getAttributes(['list_id', 'name']);
             $list['label'] = $list['name'];
-            $list['key'] = $list['list_uid'];
+            $list['key'] = $list['list_id'];
             $data[] = $list;
         }
 
@@ -686,14 +701,50 @@ class AutomationExtCustomerController extends Controller
             return;
         }
 
-        $campaign_uid = $request->getQuery('campaign_id', '');
-        $campaign = Campaign::model()->findByUid($campaign_uid);
+        $campaign_id = $request->getQuery('campaign_id', '');
+        $campaign = Campaign::model()->findByPk($campaign_id);
 
         $data = [];
         foreach ($campaign->urls as $url) {
             $destination = $url->attributes['destination'];
             if (!in_array(pathinfo($destination, PATHINFO_EXTENSION), ['png', 'css', 'js', 'jpg', 'gif', 'jpeg']))
                 $data[] = ['key' => $url->attributes['url_id'], 'label' => $destination];
+        }
+
+        $this->renderJson([
+            'success' => true,
+            'data'      => $data,
+        ]);
+    }
+
+    public function actionSubscriber_actions($id)
+    {
+
+        $customer = Yii::app()->customer->getModel();
+        $automation = AutomationExtModel::model()->findByAttributes(array(
+            'automation_id'   => (int)$id,
+            'customer_id' => (int)$customer->customer_id,
+        ));
+
+        //invalid automation id
+        if (empty($automation)) {
+
+            $message = Yii::t('app', 'The requested page does not exist.');
+
+            $this->renderJson([
+                'success' => false,
+                'message' => $message
+            ], 404);
+
+            return;
+        }
+
+        $subscriber = new ListSubscriber();
+        $actions = $subscriber->getBulkActionsList();
+
+        $data = [];
+        foreach ($actions as $action => $label) {
+            $data[] = ['key' => $action, 'label' => $label];
         }
 
         $this->renderJson([

@@ -34,7 +34,7 @@ class AutomationExtLogModel extends ActiveRecord
     public function rules()
     {
         $rules = array(
-            ['autiomation_id, canvas_block_id, status', 'required']
+            ['automation_id, canvas_block_id, status', 'required']
         );
 
         return CMap::mergeArray($rules, parent::rules());

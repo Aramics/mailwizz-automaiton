@@ -7,6 +7,7 @@
 	--neutral2: #e8e8ef;
 	--neutral3: #808292;
 	--neutral5: #393c44;
+	--neutral6: #a6a6a6;
 	--neutral8: #c9c9d5;
 	--accent: #009ef7;
 	--warning-color: #e88c21;
@@ -22,6 +23,7 @@ html.dark:root {
 	--neutral2: #323248;
 	/*var(--mz-dark-border-color)*/
 	--neutral5: #565674;
+	--neutral6: #888;
 	/** var(--mz-dark-gray-500)*/
 	--neutral7: #92929f;
 	/** var(--mz-dark-gray-700)*/
@@ -296,20 +298,21 @@ input[disabled] {
 
 ::-webkit-input-placeholder {
 	/* Edge */
-	color: var(--neutral8);
+	color: var(--neutral6);
 }
 
 :-ms-input-placeholder {
 	/* Internet Explorer 10-11 */
-	color: var(--neutral8);
+	color: var(--neutral6);
 }
 
 ::placeholder,
 input,
 .empty-search,
 select,
-textarea {
-	color: var(--neutral8);
+textarea,
+.text-muted {
+	color: var(--neutral6);
 }
 
 :focus,

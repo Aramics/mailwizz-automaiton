@@ -4,7 +4,7 @@
  * This is the model class for table "automations".
  *
  * The followings are the available columns in table 'automations':
- * @property integer $automations_id
+ * @property integer $automation_id
  * @property integer $customer_id
  * @property string $title
  * @property string $trigger
@@ -17,7 +17,7 @@
  * The followings are the available model relations:
  * @property Customer $customer
  */
-class AutomationExtModel extends BounceServer
+class AutomationExtModel extends ActiveRecord
 {
 
     /**
@@ -26,7 +26,7 @@ class AutomationExtModel extends BounceServer
     const STATUS_DRAFT = 'draft';
     const STATUS_STOPED = 'stopped';
     const STATUS_COMPLETED = 'completed';
-
+    const STATUS_CRON_RUNNING = 'cron_running';
     /**
      * @inheritdoc
      */
@@ -299,6 +299,14 @@ class AutomationExtModel extends BounceServer
     /**
      * @return bool
      */
+    public function getIsActive(): bool
+    {
+        return $this->getStatusIs(self::STATUS_ACTIVE);
+    }
+
+    /**
+     * @return bool
+     */
     public function getIsStopped(): bool
     {
         return $this->getStatusIs(self::STATUS_STOPED);
@@ -310,7 +318,7 @@ class AutomationExtModel extends BounceServer
      */
     public function stop()
     {
-        if (!$this->getIsActive()) {
+        if (!$this->getIsActive() && !$this->getStatusIs(self::STATUS_CRON_RUNNING)) {
             return false;
         }
 
@@ -326,21 +334,26 @@ class AutomationExtModel extends BounceServer
     }
 
 
+    /**
+     * @return bool
+     */
+    public function getCanBeUpdated(): bool
+    {
+        return !in_array($this->status, [self::STATUS_CRON_RUNNING, self::STATUS_STOPED]);
+    }
+
+
+    /**
+     * @return bool
+     */
+    public function getIsLocked(): bool
+    {
+        return (string)$this->locked === self::TEXT_YES;
+    }
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-    public function __process(array $params = []): bool
+    public function processCanvasFromCron(array $params = []): bool
     {
         /*$mutexKey = sha1('automationext' . serialize($this->getAttributes(array('automation_id', 'customer_id'))) . date('Ymd'));
         if (!Yii::app()->mutex->acquire($mutexKey, 5)) {
@@ -352,94 +365,31 @@ class AutomationExtModel extends BounceServer
                 // throw new Exception('The automation is inactive!', 1);
             }
 
-
-            $canvas = new AutomationExtCanvas($this->canvas_data);
-
             $logger = !empty($params['logger']) && is_callable($params['logger']) ? $params['logger'] : null;
+            $extension = Yii::app()->extensionsManager->getExtensionInstance('automation');
 
             // put proper status
-            //$this->saveStatus(self::STATUS_CRON_RUNNING);
+            $this->saveStatus(self::STATUS_CRON_RUNNING);
 
 
-            $extension = Yii::app()->extensionsManager->getExtensionInstance('automation');
             //$filterAutoresponder = $extension->getOption('exclude_autoresponse', 'yes') !== 'no';
+            $canvas = new AutomationExtCanvas($this->canvas_data);
+            $trigger = $canvas->getTriggerBlock();
+            $trigger_type = $trigger->getType();
+            $trigger_value = $trigger->getTriggerValue();
 
-            $blocks = $canvas->getBlocks();
-            $trigger_block = $canvas->getTriggerBlock();
-            $trigger_block_id = $canvas->getBlockId($trigger_block);
-            $isATree = $canvas->blockIsTree($trigger_block);
-
-            $canvas->run();
-            $block = $canvas->getNextBlock($trigger_block);
-            var_dump($block->id);
-            while ($block != null) {
-                $block = $canvas->moveToNextBlock($block);
-            }
-            $subscriber = $params['subscriber'];
-            dd($blocks);
-
-            while ($block != null) {
-                # code...
-                $block_id = $canvas->getBlockId($block);
-                $is_trigger = $block_id == $trigger_block_id;
-
-
-                $block_id = $canvas->getBlockId($block);
-                $block_type = $canvas->getBlockType($block);
-                $block_group = $canvas->getBlockGroup($block);
-
-                if (!in_array($block_group, [AutomationExtBlockGroups::ACTION, AutomationExtBlockGroups::LOGIC])) {
-                    throw new Exception("Can only process action or logic block", 1);
-                }
-
-                //check if executed.
-                $c_criteria = new CDbCriteria();
-                if ($subscriber) {
-                    $c_criteria->compare('subject_id', $subscriber->subscriber_uid);
-                    $c_criteria->compare('subject_type', 'subscriber');
-                }
-                $c_criteria->compare('canvas_block_id', (int)$block_id);
-                $c_criteria->compare('automation_id', $this->id);
-                $log = AutomationExtLogModel::model()->find($c_criteria);
-
-                if (!$log) {
-
-                    $log = new AutomationExtLogModel();
-                    $log->automation_id = $this->id;
-                    $log->canvas_block_id = $block_id;
-                    $log->subject_id = $subscriber ? $subscriber->subscriber_uid : NULL;
-                    $log->subject_type = $subscriber ? 'subscriber' : NULL;
-                    $log->status = self::STATUS_DRAFT;
-                    if (!$log->save()) {
-                        throw new Exception("Error saving automation:$this->id log for block:$block_id", 1);
-                    }
-                }
-
-                if ($log->status == self::STATUS_CRON_RUNNING) {
-                    //move to anothe branch or break;
-                }
-
-
-                if (!in_array($log->status, [self::STATUS_COMPLETED])) {
-                    //good for processing. process either action or logic block
-                    //if ($canvas->blockIsTree($block)){
-                    //get the three and run. till exausted
-
-                    if ($canvas->blockIsTree($block)) {
-                    } else {
-                        $tmp_block = $canvas->processBlock($block, $log); //return next block or null.
-                    }
-                }
-                //}
-
-                else {
-                    $block = null;
-                }
+            $subscribers_info = AutomationExtBlockGroupTrigger::getTriggerSubscribers($trigger_type, $this->last_run, $trigger_value);
+            foreach ($subscribers_info as $row) {
+                $subscriber = ListSubscriber::model()->findByPk($row->subscriber_id);
+                $canvas->run([
+                    'logger' => [$this, 'lo'],
+                    'subscriber' => $subscriber
+                ]);
             }
         } catch (Exception $e) {
-            if ($e->getCode() == 0) {
-                Yii::log($e->getMessage(), CLogger::LEVEL_ERROR);
-            }
+
+
+            Yii::log($e->getMessage(), CLogger::LEVEL_ERROR);
         }
 
         // mark the automation as active once again

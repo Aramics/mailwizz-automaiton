@@ -71,7 +71,7 @@ class AutomationExt extends ExtensionInit
 
         if ($this->isAppName('console')) {
 
-            // handle all command related tasks i.e php apps/console/console.php track-reply >/dev/null 2 >&1
+            // handle all command related tasks i.e php apps/console/console.php run-automation >/dev/null 2 >&1
             $this->consoleApp();
         }
     }
@@ -82,13 +82,14 @@ class AutomationExt extends ExtensionInit
         $hooks = Yii::app()->hooks;
 
         //bind bindable triggers
-        (new AutomationExtGroupTriggers())->init($this);
+        (new AutomationExtBlockGroupTrigger())->init($this);
     }
 
 
     private function loadModels()
     {
         Yii::import('ext-automation.common.utils.*');
+        Yii::import('ext-automation.common.utils.*.*');
 
         Yii::import('ext-automation.common.models.*');
     }
@@ -211,6 +212,7 @@ class AutomationExt extends ExtensionInit
          `status` char(15) NOT NULL DEFAULT 'draft',
          `date_added` datetime NOT NULL,
          `last_updated` datetime NOT NULL,
+         `last_run` datetime DEFAULT NULL,
          PRIMARY KEY (`automation_id`),
          KEY `fk_{{automations}}_customer1_idx` (`customer_id`),
          CONSTRAINT `fk_{{automations}}_customer1` FOREIGN KEY (`customer_id`) REFERENCES `{{customer}}` (`customer_id`) ON DELETE CASCADE ON UPDATE NO ACTION

@@ -2,7 +2,7 @@
 
 defined('MW_PATH') || exit('No direct script access allowed');
 
-class AutomationExtBlockTypes extends AutomationExtBlock
+class AutomationExtBlockTypes extends AutomationExtReflection
 {
     const LIST_SUBSCRIPTION =  "list-subscription"; //trigger
     const LIST_UNSUBSCRIPTION =  "list-unsubscription"; //trigger
@@ -19,7 +19,7 @@ class AutomationExtBlockTypes extends AutomationExtBlock
     const MOVE_SUBSCRIBER =  "move-subscriber"; //action
     const COPY_SUBSCRIBER =  "copy-subscriber"; //action 
     const UPDATE_SUBSCRIBER =  "update-subscriber"; //action
-    const REMOVE_SUBSCRIBER =  "remove-subscriber"; //action
+    const OTHER_SUBSCRIBER_ACTION =  "other-subscriber-action"; //action
     const WEBHOOK_ACTION =  "webhook-action"; //action
     const STOP =  "stop"; //action
     const YES =  "yes"; //logic

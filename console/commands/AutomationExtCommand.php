@@ -1,13 +1,13 @@
 <?php defined('MW_PATH') || exit('No direct script access allowed');
 
 /**
- * ReplyTrackerExtInboundModelHandlerCommand
+ * AutomationExtCommand
  *
- * This class handle track-reply command which must have
+ * This class handle run-automation command which must have
  * set through cron
  */
 
-class TrackReplyCommand extends ConsoleCommand
+class AutomationExtCommand extends ConsoleCommand
 {
     /**
      * @var int
@@ -27,8 +27,6 @@ class TrackReplyCommand extends ConsoleCommand
     public function init()
     {
         parent::init();
-
-        Yii::import('common.vendors.BounceHandler.*');
     }
 
     /**
@@ -50,13 +48,12 @@ class TrackReplyCommand extends ConsoleCommand
 
             // since 1.5.0
             AutomationExtModel::model()->updateAll(array(
-                'status' => ReplyTrackerExtInboundModel::STATUS_ACTIVE,
+                'status' => AutomationExtModel::STATUS_ACTIVE,
             ), 'status = :st', array(
-                ':st' => ReplyTrackerExtInboundModel::STATUS_CRON_RUNNING,
+                ':st' => AutomationExtModel::STATUS_CRON_RUNNING,
             ));
             //
 
-            // added in 1.3.4.7
             Yii::app()->hooks->doAction('console_command_automation_before_process', $this);
 
             if ($this->getCanUsePcntl()) {
@@ -67,7 +64,6 @@ class TrackReplyCommand extends ConsoleCommand
                 $this->processWithoutPcntl();
             }
 
-            // added in 1.3.4.7
             Yii::app()->hooks->doAction('console_command_automation_after_process', $this);
         } catch (Exception $e) {
             $this->stdout(__LINE__ . ': ' .  $e->getMessage());
@@ -88,24 +84,24 @@ class TrackReplyCommand extends ConsoleCommand
      */
     protected function processWithPcntl()
     {
-        // get all servers
-        $servers = ReplyTrackerExtInboundModel::model()->findAll(array(
+        // get all automations
+        $automations = AutomationExtModel::model()->findAll(array(
             'condition' => 't.status = :status',
-            'params'    => array(':status' => ReplyTrackerExtInboundModel::STATUS_ACTIVE),
+            'params'    => array(':status' => AutomationExtModel::STATUS_ACTIVE),
         ));
 
         // close the external connections
         $this->setExternalConnectionsActive(false);
 
-        // split into x server chuncks
+        // split into x automation chuncks
         $chunkSize    = (int)$this->getOption('pcntl_processes', 10);
-        $serverChunks = array_chunk($servers, $chunkSize);
-        unset($servers);
+        $automationChunks = array_chunk($automations, $chunkSize);
+        unset($automations);
 
-        foreach ($serverChunks as $servers) {
+        foreach ($automationChunks as $automations) {
             $childs = array();
 
-            foreach ($servers as $server) {
+            foreach ($automations as $automation) {
                 $pid = pcntl_fork();
                 if ($pid == -1) {
                     continue;
@@ -119,13 +115,13 @@ class TrackReplyCommand extends ConsoleCommand
                 // child
                 if (!$pid) {
                     try {
-                        $this->stdout(sprintf('Started processing server ID %d.', $server->server_id));
+                        $this->stdout(sprintf('Started processing automation ID %d.', $automation->automation_id));
 
-                        $server->processRemoteContents(array(
+                        $automation->processCanvasFromCron(array(
                             'logger' => $this->verbose ? array($this, 'stdout') : null,
                         ));
 
-                        $this->stdout(sprintf('Finished processing server ID %d.', $server->server_id));
+                        $this->stdout(sprintf('Finished processing automation ID %d.', $automation->automation_id));
                     } catch (Exception $e) {
                         $this->stdout(__LINE__ . ': ' .  $e->getMessage());
                         Yii::log($e->getMessage(), CLogger::LEVEL_ERROR);
@@ -155,21 +151,21 @@ class TrackReplyCommand extends ConsoleCommand
      */
     protected function processWithoutPcntl()
     {
-        // get all servers
-        $servers = ReplyTrackerExtInboundModel::model()->findAll(array(
+        // get all automations
+        $automations = AutomationExtModel::model()->findAll(array(
             'condition' => 't.status = :status',
-            'params'    => array(':status' => ReplyTrackerExtInboundModel::STATUS_ACTIVE),
+            'params'    => array(':status' => AutomationExtModel::STATUS_ACTIVE),
         ));
 
-        foreach ($servers as $server) {
+        foreach ($automations as $automation) {
             try {
-                $this->stdout(sprintf('Started processing server ID %d.', $server->server_id));
+                $this->stdout(sprintf('Started processing automation ID %d.', $automation->automation_id));
 
-                $server->processRemoteContents(array(
+                $automation->processCanvasFromCron(array(
                     'logger' => $this->verbose ? array($this, 'stdout') : null,
                 ));
 
-                $this->stdout(sprintf('Finished processing server ID %d.', $server->server_id));
+                $this->stdout(sprintf('Finished processing automation ID %d.', $automation->automation_id));
             } catch (Exception $e) {
                 $this->stdout(__LINE__ . ': ' .  $e->getMessage());
                 Yii::log($e->getMessage(), CLogger::LEVEL_ERROR);
@@ -201,7 +197,7 @@ class TrackReplyCommand extends ConsoleCommand
     //This method get instance of the extension
     public function getExtensionInstance()
     {
-        return Yii::app()->extensionsManager->getExtensionInstance('reply-tracker');
+        return Yii::app()->extensionsManager->getExtensionInstance('automation');
     }
 
     //We use this method to access extension setting from extension page.
