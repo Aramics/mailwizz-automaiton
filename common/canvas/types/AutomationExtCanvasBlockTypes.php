@@ -2,7 +2,7 @@
 
 defined('MW_PATH') || exit('No direct script access allowed');
 
-class AutomationExtBlockTypes extends AutomationExtReflection
+class AutomationExtCanvasBlockTypes extends AutomationExtReflection
 {
     const LIST_SUBSCRIPTION =  "list-subscription"; //trigger
     const LIST_UNSUBSCRIPTION =  "list-unsubscription"; //trigger
@@ -15,7 +15,9 @@ class AutomationExtBlockTypes extends AutomationExtReflection
     const REPLY_EMAIL =  "reply-email"; //trigger/logic
     const WAIT =  "wait"; //action
     const SEND_EMAIL =  "send-email"; //action
+    const SEND_CAMPAIGN =  "send-campaign"; //action
     const RUN_CAMPAIGN =  "run-campaign"; //action
+    const OTHER_CAMPAIGN_ACTION = "other-campaign-action"; //action
     const MOVE_SUBSCRIBER =  "move-subscriber"; //action
     const COPY_SUBSCRIBER =  "copy-subscriber"; //action 
     const UPDATE_SUBSCRIBER =  "update-subscriber"; //action

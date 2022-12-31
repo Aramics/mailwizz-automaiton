@@ -49,7 +49,7 @@ class AutomationExtCanvas
     /**
      * Block list
      *
-     * @var AutomationExtBlock[]
+     * @var AutomationExtCanvasBlock[]
      */
     private $blocks = [];
 
@@ -104,7 +104,7 @@ class AutomationExtCanvas
             return Yii::t('ext_automation', 'Canvas required minimum of 2 blocks');
         }
 
-        $trigger_block = new AutomationExtBlock($this->canvas->blocks[0]);
+        $trigger_block = new AutomationExtCanvasBlock($this->canvas->blocks[0]);
         if ($trigger_block->getGroup() != "triggers") {
 
             return Yii::t('ext_automation', 'Trigger is required!');
@@ -114,7 +114,7 @@ class AutomationExtCanvas
         foreach ($this->canvas->blocks as $index => $block) {
 
             //make block instance
-            $block = new AutomationExtBlock($block);
+            $block = new AutomationExtCanvasBlock($block);
             $this->blocks[$index] = $block;
 
             $parent_block = $this->getBlockParent($block);
@@ -151,7 +151,7 @@ class AutomationExtCanvas
         return $node;
     }
 
-    private function buildNode(AutomationExtBlock $block, array $prevNode, bool $namedIndex = false)
+    private function buildNode(AutomationExtCanvasBlock $block, array $prevNode, bool $namedIndex = false)
     {
         $children = $this->getBlockChildren($block);
         $blockId = $namedIndex ? $block->getType() : $block->id;
@@ -244,21 +244,21 @@ class AutomationExtCanvas
         $this->debug("Processing- " . ($hasSiblings ? "(with siblings)" : '') . ": $blockId - $blockType - $blockGroup<br/>");
 
         //skip for triggers blocks
-        if ($blockGroup == AutomationExtBlockGroups::TRIGGER) {
+        if ($blockGroup == AutomationExtCanvasBlockGroups::TRIGGER) {
             $this->debug("Skipping trigger");
             return true;
         }
 
         //skip for triggers blocks
-        if ($blockGroup == AutomationExtBlockGroups::ACTION) {
-            $actionRunner = new AutomationExtBlockGroupAction($this);
+        if ($blockGroup == AutomationExtCanvasBlockGroups::ACTION) {
+            $actionRunner = new AutomationExtCanvasBlockGroupAction($this);
             return $actionRunner->run($block, $subscriber);
         }
 
 
         //skip for triggers blocks
-        if ($blockGroup == AutomationExtBlockGroups::LOGIC) {
-            $logicRunner = new AutomationExtBlockGroupLogic($this);
+        if ($blockGroup == AutomationExtCanvasBlockGroups::LOGIC) {
+            $logicRunner = new AutomationExtCanvasBlockGroupLogic($this);
             return $logicRunner->run($block, $subscriber);
         }
 
@@ -309,11 +309,11 @@ class AutomationExtCanvas
     /**
      * Validate canvas block.
      *
-     * @param AutomationExtBlock $block
-     * @param AutomationExtBlock|null $parent . The parent block to the current block. NULL for triggers
+     * @param AutomationExtCanvasBlock $block
+     * @param AutomationExtCanvasBlock|null $parent . The parent block to the current block. NULL for triggers
      * @return string|true
      */
-    public function validateBlock(AutomationExtBlock $block, AutomationExtBlock $parent = null)
+    public function validateBlock(AutomationExtCanvasBlock $block, AutomationExtCanvasBlock $parent = null)
     {
         //validate structure.
         if (!isset($block->id) || !isset($block->parent) || !isset($block->data)) {
@@ -321,7 +321,7 @@ class AutomationExtCanvas
             return Yii::t('ext_automation', 'Invalid block structure on canvas');
         }
 
-        $block = new AutomationExtBlock($block);
+        $block = new AutomationExtCanvasBlock($block);
         $blockGroup = $block->getGroup();
         $blockType = $block->getType();
 
@@ -339,7 +339,7 @@ class AutomationExtCanvas
         if (!$parent) {
 
             //only allow triggers as first blocks
-            if ($blockGroup != AutomationExtBlockGroups::TRIGGER) {
+            if ($blockGroup != AutomationExtCanvasBlockGroups::TRIGGER) {
 
                 return Yii::t('ext_automation', 'Only triggers can used as the first block.');
             }
@@ -348,7 +348,7 @@ class AutomationExtCanvas
 
         if ($parent) {
 
-            $parent = new AutomationExtBlock($parent);
+            $parent = new AutomationExtCanvasBlock($parent);
             $parentGroup = $parent->getGroup();
             $parentType = $parent->getType();
 
@@ -364,37 +364,37 @@ class AutomationExtCanvas
 
             if ($parentType == $blockType) {
 
-                if ($parentType != AutomationExtBlockGroups::ACTION) {
+                if ($parentType != AutomationExtCanvasBlockGroups::ACTION) {
 
                     return Yii::t('ext_automation', 'Cant have same non action block as a direct child');
                 }
             }
 
-            if ($blockGroup == AutomationExtBlockGroups::TRIGGER) { //only on trigger on the canvas
+            if ($blockGroup == AutomationExtCanvasBlockGroups::TRIGGER) { //only on trigger on the canvas
 
                 return Yii::t('ext_automation', 'Canvas already have a trigger');
             }
 
 
             //logics
-            $yesNo = [AutomationExtBlockTypes::YES, AutomationExtBlockTypes::NO];
+            $yesNo = [AutomationExtCanvasBlockTypes::YES, AutomationExtCanvasBlockTypes::NO];
             $blockIsYesNo = in_array($blockType, $yesNo);
             $parentIsYesNO = in_array($parentType, $yesNo);
 
             //only logic should follow logics other than yes or no
-            if ($parentGroup == AutomationExtBlockGroups::LOGIC) {
+            if ($parentGroup == AutomationExtCanvasBlockGroups::LOGIC) {
 
-                if (!$parentIsYesNO && $blockGroup != AutomationExtBlockGroups::LOGIC) {
+                if (!$parentIsYesNO && $blockGroup != AutomationExtCanvasBlockGroups::LOGIC) {
 
                     return Yii::t('ext_automation',  'Only logic should be folled by a logics block except for "yes" and "no" logics');
                 }
             }
 
 
-            if ($blockGroup == AutomationExtBlockGroups::LOGIC) {
+            if ($blockGroup == AutomationExtCanvasBlockGroups::LOGIC) {
 
                 //Non logic blocks should not be followed by yes or no
-                if ($parentGroup != AutomationExtBlockGroups::LOGIC && $blockIsYesNo) {
+                if ($parentGroup != AutomationExtCanvasBlockGroups::LOGIC && $blockIsYesNo) {
 
                     return Yii::t('ext_automation',  'Non logic blocks cant be followed by yes or no');
                 }
@@ -406,7 +406,7 @@ class AutomationExtCanvas
                 }
 
                 //A logic block other than "yes" and "no" should be followed by "yes" or "no"
-                if ($parentGroup == AutomationExtBlockGroups::LOGIC && !$parentIsYesNO && !$blockIsYesNo) {
+                if ($parentGroup == AutomationExtCanvasBlockGroups::LOGIC && !$parentIsYesNO && !$blockIsYesNo) {
 
                     return Yii::t('ext_automation',  'A logic block other than "yes" and "no" should be followed by "yes" or "no"');
                 }

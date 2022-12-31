@@ -153,32 +153,46 @@ document.addEventListener("alpine:init", async () => {
 	Alpine.store("global_lists", {
 		mail_list: [],
 		campaigns: [], //all campaigns with non empty templates
-		regular_draft_campaigns: [], //Regular campaigns with draft status and non empty templates
+		regular_campaigns: [], //Regular campaigns with non empty templates
 		subscriber_actions: [],
+		campaign_actions: [],
 
 		async init() {
-			let resp = await automationHttpRequest(MAIL_LISTS_FETCH_URL, "GET");
+			//@TODO: batch request using promise.all
+			let resp = await automationHttpRequest(
+				GLOBAL_LIST_URLS.MAIL_LISTS_FETCH_URL,
+				"GET"
+			);
 			if (resp.success) this.mail_list = resp.data;
 
-			resp = await automationHttpRequest(CAMPAIGNS_FETCH_URL, "GET");
+			resp = await automationHttpRequest(
+				GLOBAL_LIST_URLS.CAMPAIGNS_FETCH_URL,
+				"GET"
+			);
 			if (resp.success) {
 				this.campaigns = resp.data.campaigns_templates;
-				this.regular_draft_campaigns =
-					resp.data.regular_draft_campaigns;
+				this.regular_campaigns = resp.data.regular_campaigns;
 			}
 
 			resp = await automationHttpRequest(
-				SUBSCRIBER_ACTIONS_FETCH_URL,
+				GLOBAL_LIST_URLS.SUBSCRIBER_ACTIONS_FETCH_URL,
 				"GET"
 			);
 			if (resp.success) this.subscriber_actions = resp.data;
+
+			resp = await automationHttpRequest(
+				GLOBAL_LIST_URLS.CAMPAIGN_ACTIONS_FETCH_URL,
+				"GET"
+			);
+			if (resp.success) this.campaign_actions = resp.data;
 
 			let event = new CustomEvent("global-lists-load", {
 				detail: {
 					mail_list: this.mail_list,
 					campaigns: this.campaigns,
-					regular_draft_campaigns: this.regular_draft_campaigns,
+					regular_campaigns: this.regular_campaigns,
 					subscriber_actions: this.subscriber_actions,
+					campaign_actions: this.campaign_actions,
 				},
 			});
 

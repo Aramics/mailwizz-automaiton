@@ -5,7 +5,7 @@ defined('MW_PATH') || exit('No direct script access allowed');
 /**
  * This class describe a Canvas block.
  */
-class AutomationExtBlock
+class AutomationExtCanvasBlock
 {
     public $id;
 
@@ -13,7 +13,6 @@ class AutomationExtBlock
     {
         foreach ($block as $key => $value) $this->{$key} = $value;
     }
-
 
     /**
      * Get block group from the block object
@@ -23,7 +22,7 @@ class AutomationExtBlock
     public function getGroup()
     {
         $group = $this->getDataByName("blockelemgroup"); //should return triggers, action or logic
-        return in_array($group, AutomationExtBlockGroups::getConstants()) ? trim($group) : '';
+        return in_array($group, AutomationExtCanvasBlockGroups::getConstants()) ? trim($group) : '';
     }
 
     /**
@@ -35,7 +34,7 @@ class AutomationExtBlock
     {
 
         $blockType = $this->getDataByName("blockelemtype");
-        return in_array($blockType, AutomationExtBlockTypes::getConstants()) ? trim($blockType) : '';
+        return in_array($blockType, AutomationExtCanvasBlockTypes::getConstants()) ? trim($blockType) : '';
     }
 
     /**
@@ -86,6 +85,12 @@ class AutomationExtBlock
         return '';
     }
 
+    /**
+     * Return block data named "trigger_value"
+     * Empty if the block is not a trigger block.
+     * 
+     * @return string
+     */
     public function getTriggerValue()
     {
         return $this->getDataByName("trigger_value");

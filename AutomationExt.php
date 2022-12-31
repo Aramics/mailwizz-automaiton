@@ -82,15 +82,14 @@ class AutomationExt extends ExtensionInit
         $hooks = Yii::app()->hooks;
 
         //bind bindable triggers
-        (new AutomationExtBlockGroupTrigger())->init($this);
+        (new AutomationExtCanvasBlockGroupTrigger())->init($this);
     }
 
 
     private function loadModels()
     {
-        Yii::import('ext-automation.common.utils.*');
-        Yii::import('ext-automation.common.utils.*.*');
-
+        Yii::import('ext-automation.common.canvas.types.*');
+        Yii::import('ext-automation.common.canvas.*');
         Yii::import('ext-automation.common.models.*');
     }
 

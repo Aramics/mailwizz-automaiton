@@ -352,6 +352,18 @@ class AutomationExtModel extends ActiveRecord
     }
 
 
+    public static function campaignBlockActionsList()
+    {
+        return [
+            'copy'                => t('automations', 'Copy'),
+            Campaign::STATUS_PAUSED       => t('automations', 'Pause'),
+            Campaign::STATUS_SENDING           => t('automations', 'Mark sending'),
+            Campaign::STATUS_PENDING_SENDING          => t('automations', 'Mark pending sending'),
+            Campaign::STATUS_SENT          => t('automations', 'Mark sent'),
+            Campaign::STATUS_DRAFT       => t('automations', 'Mark draft'),
+            Campaign::STATUS_BLOCKED       => t('automations', 'Blocked'),
+        ];
+    }
 
     public function processCanvasFromCron(array $params = []): bool
     {
@@ -378,13 +390,19 @@ class AutomationExtModel extends ActiveRecord
             $trigger_type = $trigger->getType();
             $trigger_value = $trigger->getTriggerValue();
 
-            $subscribers_info = AutomationExtBlockGroupTrigger::getTriggerSubscribers($trigger_type, $this->last_run, $trigger_value);
+            $subscribers_info = AutomationExtCanvasBlockGroupTrigger::getTriggerSubscribers($trigger_type, $this->last_run, $trigger_value);
+            $failedList = [];
             foreach ($subscribers_info as $row) {
-                $subscriber = ListSubscriber::model()->findByPk($row->subscriber_id);
-                $canvas->run([
-                    'logger' => [$this, 'lo'],
-                    'subscriber' => $subscriber
-                ]);
+                try {
+                    $subscriber = ListSubscriber::model()->findByPk($row->subscriber_id);
+                    $canvas->run([
+                        'logger' => [$this, 'lo'],
+                        'subscriber' => $subscriber
+                    ]);
+                } catch (\Throwable $th) {
+                    //throw $th;
+                    $failedList[] = @$row->subscriber_id;
+                }
             }
         } catch (Exception $e) {
 

@@ -4,7 +4,7 @@ defined('MW_PATH') || exit('No direct script access allowed');
 /**
  * This is the class that run all blocks in canvas actions group.
  */
-class AutomationExtBlockGroupAction
+class AutomationExtCanvasBlockGroupAction
 {
 
     /**
@@ -23,7 +23,7 @@ class AutomationExtBlockGroupAction
 
 
     /**
-     * Create new instance of AutomationExtBlockGroupAction
+     * Create new instance of AutomationExtCanvasBlockGroupAction
      * We require the canvas to give easy access to some methods and properties.
      *
      * @param AutomationExtCanvas $canvas
@@ -70,18 +70,18 @@ class AutomationExtBlockGroupAction
     /**
      * Run a canvas action block.
      *
-     * @param AutomationExtBlock $block
+     * @param AutomationExtCanvasBlock $block
      * @param ListSubscriber|null $subscriber
      * @return bool True if successful
      * 
      * @throws Exception Invalid block group,Internal errors or wrong ownerships.
      */
-    public function run(AutomationExtBlock $block, ListSubscriber $subscriber = null)
+    public function run(AutomationExtCanvasBlock $block, ListSubscriber $subscriber = null)
     {
 
         $blockGroup = $block->getGroup();
         $blockType = $block->getType();
-        if ($blockGroup !== AutomationExtBlockGroups::LOGIC) {
+        if ($blockGroup !== AutomationExtCanvasBlockGroups::LOGIC) {
 
             throw new Exception(sprintf(t("automation", "Invalid block group %s passed as action"), $blockGroup), 1);
         }
@@ -89,38 +89,46 @@ class AutomationExtBlockGroupAction
 
         switch ($blockType) {
 
-            case AutomationExtBlockTypes::STOP:
+            case AutomationExtCanvasBlockTypes::STOP:
                 return $this->stopAutomation();
                 break;
 
-            case AutomationExtBlockTypes::WAIT:
+            case AutomationExtCanvasBlockTypes::WAIT:
                 return $this->wait($block, $this->canvas->getBlockParent($block));
                 break;
 
-            case AutomationExtBlockTypes::SEND_EMAIL:
-                return $this->sendEmail($block, $subscriber, $this->canvas->automation);
+            case AutomationExtCanvasBlockTypes::SEND_EMAIL:
+                return $this->sendEmail($block, $subscriber);
                 break;
 
-            case AutomationExtBlockTypes::RUN_CAMPAIGN:
-                return $this->runCampaign($block, $this->canvas->automation);
+            case AutomationExtCanvasBlockTypes::SEND_CAMPAIGN:
+                return $this->addSubscriberToCampaign($block, $subscriber);
                 break;
 
-            case AutomationExtBlockTypes::MOVE_SUBSCRIBER:
-            case AutomationExtBlockTypes::COPY_SUBSCRIBER:
+            case AutomationExtCanvasBlockTypes::RUN_CAMPAIGN:
+                return $this->runCampaign($block);
+                break;
+
+            case AutomationExtCanvasBlockTypes::OTHER_CAMPAIGN_ACTION:
+                return $this->campaignOtherActions($block);
+                break;
+
+            case AutomationExtCanvasBlockTypes::MOVE_SUBSCRIBER:
+            case AutomationExtCanvasBlockTypes::COPY_SUBSCRIBER:
                 return $this->moveCopySubscriber($block, $subscriber, $this->canvas->automation);
                 break;
 
-            case AutomationExtBlockTypes::UPDATE_SUBSCRIBER:
+            case AutomationExtCanvasBlockTypes::UPDATE_SUBSCRIBER:
                 return $this->updateSubscriber($block, $subscriber);
                 break;
 
 
-            case AutomationExtBlockTypes::OTHER_SUBSCRIBER_ACTION:
+            case AutomationExtCanvasBlockTypes::OTHER_SUBSCRIBER_ACTION:
                 return $this->subscriberOtherActions($block, $subscriber);
                 break;
 
 
-            case AutomationExtBlockTypes::WEBHOOK_ACTION:
+            case AutomationExtCanvasBlockTypes::WEBHOOK_ACTION:
                 return $this->webhookAction($block, $subscriber);
                 break;
         }
@@ -146,11 +154,11 @@ class AutomationExtBlockGroupAction
     /**
      * Excute wait action
      *
-     * @param AutomationExtBlock $block
-     * @param AutomationExtBlock $parentBlock
+     * @param AutomationExtCanvasBlock $block
+     * @param AutomationExtCanvasBlock $parentBlock
      * @return bool
      */
-    public function wait(AutomationExtBlock $block, AutomationExtBlock $parentBlock)
+    public function wait(AutomationExtCanvasBlock $block, AutomationExtCanvasBlock $parentBlock)
     {
         // wait block and its evaluation
         $data = $block->getData();
@@ -169,30 +177,46 @@ class AutomationExtBlockGroupAction
      * Method to run the send email block.
      * Will send email to the subscriber using content/template of the provided campaign (regular or automation)
      *
-     * @param AutomationExtBlock $block
+     * @param AutomationExtCanvasBlock $block
      * @param ListSubscriber $subscriber
      * @return bool
      */
-    public function sendEmail(AutomationExtBlock $block, ListSubscriber $subscriber)
+    public function sendEmail(AutomationExtCanvasBlock $block, ListSubscriber $subscriber)
     {
-        if (!$subscriber) {
-            $this->debug("Subscriber not found");
+        $blockData = $block->getData();
+        $email = trim($blockData['email']);
+        $campaignId = (int)$blockData['campaign'];
+
+        $validator = new CEmailValidator();
+        $validator->allowEmpty  = false;
+        $validator->validateIDN = true;
+        $validEmail = $validator->validateValue($email);
+
+        if (!empty($email) && !$validEmail) {
+
+            $this->debug(sprintf(t("automations", "Valid email address is required for send transaction email %s"), $email));
             return false;
         }
 
+        if (!$validEmail && !$subscriber) {
+
+            $this->debug(t("automations", "Subscriber or Valid email address is required to send transactional email: non is found"));
+            return false;
+        }
+
+        $email = $validEmail ? $email : $subscriber->email;
+
         // send an email
-        $campaignId = (int)$block->getDataByName('campaign');
         $criteria = new CDbCriteria();
         $criteria->compare('campaign_id', $campaignId);
         $criteria->addNotInCondition('status', [Campaign::STATUS_PENDING_DELETE]);
+
         /** @var Campaign|null $model */
         $campaign = Campaign::model()->find($criteria);
-
         $this->validateResourceOwnership($campaign);
 
         $dsParams = array('useFor' => DeliveryServer::USE_FOR_CAMPAIGNS);
-        // $list = $campaign->list;
-        $list = $subscriber->list;
+        $list = $subscriber->list ?? $campaign->list;
 
         if (!($server = DeliveryServer::pickServer(0, $campaign, $dsParams))) {
             if (!($server = DeliveryServer::pickServer(0, $list))) {
@@ -201,7 +225,6 @@ class AutomationExtBlockGroupAction
                 return false;
             }
         }
-
 
         $content = $campaign->template->content;
         $subject = $campaign->getCurrentSubject();
@@ -222,7 +245,7 @@ class AutomationExtBlockGroupAction
         $fromName = $hasDefaultFromName ? $list->default->from_name : $campaign->from_name;
 
         $params = array(
-            'to'        => $subscriber->email,
+            'to'        => $email,
             'fromName'  => $fromName,
             'subject'   => $subject,
             'body'      => $content,
@@ -247,15 +270,54 @@ class AutomationExtBlockGroupAction
         return true;
     }
 
+    /**
+     * Method add the subscriber to a campaign
+     * Will add the subscriber to the campaign list and mark the campaign as sending.
+     *
+     * 
+     * @param AutomationExtCanvasBlock $block
+     * @param ListSubscriber $subscriber
+     * @return bool
+     */
+    public function addSubscriberToCampaign(AutomationExtCanvasBlock $block, ListSubscriber $subscriber)
+    {
+        if (!$subscriber) {
+            $this->debug("Subscriber not found");
+            return false;
+        }
+
+        // send an email
+        $campaignId = (int)$block->getDataByName('campaign');
+        $criteria = new CDbCriteria();
+        $criteria->compare('campaign_id', $campaignId);
+        $criteria->addNotInCondition('status', [Campaign::STATUS_PENDING_DELETE]);
+        /** @var Campaign|null $model */
+        $campaign = Campaign::model()->find($criteria);
+
+        $this->validateResourceOwnership($campaign);
+
+        //copy the campaign list
+        if ($subscriber->list->list_id == $campaign->list->List_id) {
+
+            //just log about this
+            $this->debug(t('automations', "The subscriber is already in the list "));
+        } else
+            $subscriber->copyToList($campaign->list->list_id);
+
+        //mark as sending for cron job to pickup new list members
+        $campaign->saveStatus(Campaign::STATUS_SENDING);
+        return true;
+    }
+
 
     /**
      * Start a campaign attached to the block
-     * Run only on regular campaigns.
+     * Marks campaigns as sending.
      * 
-     * @param AutomationExtBlock $block
+     * @param AutomationExtCanvasBlock $block
      * @return bool
      */
-    public function runCampaign(AutomationExtBlock $block)
+    public function runCampaign(AutomationExtCanvasBlock $block)
     {
         $campaignId = (int)$block->getDataByName('campaign');
         $criteria = new CDbCriteria();
@@ -345,15 +407,54 @@ class AutomationExtBlockGroupAction
         return true;
     }
 
+    /**
+     * Run certain action on the campaign.
+     * Copy campaign or update status to "action" data provided in the block.
+     *
+     * @param AutomationExtCanvasBlock $block
+     * @return bool
+     */
+    public function campaignOtherActions(AutomationExtCanvasBlock $block)
+    {
+        $blockData = (array)$block->getData();
+        $action = $blockData['action'];
+        $campaignId = (int)$blockData['campaign'];
+
+        $criteria = new CDbCriteria();
+        $criteria->compare('campaign_id', $campaignId);
+        $criteria->addNotInCondition('status', [Campaign::STATUS_PENDING_DELETE]);
+        /** @var Campaign|null $model */
+        $campaign = Campaign::model()->find($criteria);
+
+        $this->validateResourceOwnership($campaign);
+
+        if (!$campaign->getEditable()) {
+            $this->debug("The campaign is not editable $campaignId");
+            return false;
+        }
+
+        $actions = AutomationExtModel::campaignBlockActionsList();
+        if (!in_array($action, $actions)) {
+            $this->debug("The block: %s (campaignOtherActions) is supplied with unkown action for campaign other actions", $block->getId());
+            return false;
+        }
+
+        if ($action == "copy") { //copy action
+            return !empty($campaign->copy());
+        } else { //others are status update
+            return $campaign->saveStatus($action);
+        }
+    }
+
 
     /**
      * Move or Copy subscriber to another list provided in block data
      *
-     * @param AutomationExtBlock $block
+     * @param AutomationExtCanvasBlock $block
      * @param ListSubscriber $subscriber
      * @return bool
      */
-    public function moveCopySubscriber(AutomationExtBlock $block, ListSubscriber $subscriber)
+    public function moveCopySubscriber(AutomationExtCanvasBlock $block, ListSubscriber $subscriber)
     {
         if (!$subscriber) {
             $this->debug("Subscriber not found");
@@ -371,7 +472,7 @@ class AutomationExtBlockGroupAction
             return false;
         }
 
-        if ($block->getType() == AutomationExtBlockTypes::MOVE_SUBSCRIBER)
+        if ($block->getType() == AutomationExtCanvasBlockTypes::MOVE_SUBSCRIBER)
             $subscriber->moveToList($list->list_id);
         else
             $subscriber->copyToList($list->list_id);
@@ -383,11 +484,11 @@ class AutomationExtBlockGroupAction
     /**
      * Update subscriber fields provided in the block
      *
-     * @param AutomationExtBlock $block
+     * @param AutomationExtCanvasBlock $block
      * @param ListSubscriber $subscriber
      * @return bool
      */
-    public function updateSubscriber(AutomationExtBlock $block, ListSubscriber $subscriber)
+    public function updateSubscriber(AutomationExtCanvasBlock $block, ListSubscriber $subscriber)
     {
         if (!$subscriber) {
             $this->debug("Subscriber not found");
@@ -452,11 +553,11 @@ class AutomationExtBlockGroupAction
      * The method run bulk actions on the active subscriber only.
      * Similar to buld action on the subscribers list
      *
-     * @param AutomationExtBlock $block
+     * @param AutomationExtCanvasBlock $block
      * @param ListSubscriber $subscriber
      * @return bool
      */
-    public function subscriberOtherActions(AutomationExtBlock $block, ListSubscriber $subscriber)
+    public function subscriberOtherActions(AutomationExtCanvasBlock $block, ListSubscriber $subscriber)
     {
         if (!$subscriber) {
             $this->debug("Subscriber not found");
@@ -652,11 +753,11 @@ class AutomationExtBlockGroupAction
      * Send provided data to the webhook endpoint.
      * It detect list tags and replace if $subscriber is not empty
      *
-     * @param AutomationExtBlock $block
+     * @param AutomationExtCanvasBlock $block
      * @param ListSubscriber|null $subscriber
      * @return bool
      */
-    public function webhookAction(AutomationExtBlock $block, ListSubscriber $subscriber = null)
+    public function webhookAction(AutomationExtCanvasBlock $block, ListSubscriber $subscriber = null)
     {
         $data = $block->getData();
         $webhookUrl = $data["webhook_endpoint"];

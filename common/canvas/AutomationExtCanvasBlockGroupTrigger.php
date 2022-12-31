@@ -6,7 +6,7 @@ defined('MW_PATH') || exit('No direct script access allowed');
  * This is the helper class for automation model canvas data management.
  */
 
-class AutomationExtBlockGroupTrigger
+class AutomationExtCanvasBlockGroupTrigger
 {
 
     /**
@@ -177,10 +177,10 @@ class AutomationExtBlockGroupTrigger
         //get trigger group
         $trigger = "";
         if ($pageType->slug == "unsubscribe-confirm")
-            $trigger = AutomationExtBlockTypes::LIST_UNSUBSCRIPTION;
+            $trigger = AutomationExtCanvasBlockTypes::LIST_UNSUBSCRIPTION;
 
         if ($pageType->slug == "subscribe-confirm")
-            $trigger = AutomationExtBlockTypes::LIST_SUBSCRIPTION;
+            $trigger = AutomationExtCanvasBlockTypes::LIST_SUBSCRIPTION;
 
         if (empty($trigger)) {
 
@@ -306,8 +306,8 @@ class AutomationExtBlockGroupTrigger
         switch ($trigger_type) {
 
 
-            case AutomationExtBlockTypes::LIST_SUBSCRIPTION:
-            case AutomationExtBlockTypes::LIST_UNSUBSCRIPTION:
+            case AutomationExtCanvasBlockTypes::LIST_SUBSCRIPTION:
+            case AutomationExtCanvasBlockTypes::LIST_UNSUBSCRIPTION:
 
                 $criteria = new CDbCriteria();
                 $criteria->select    = 'reference_id as subscriber_id, reference_relation_id as list_id, customer_id, date_added';
@@ -316,7 +316,7 @@ class AutomationExtBlockGroupTrigger
                 $criteria->addCondition('reference_relation_id = :list_id');
                 //$criteria->limit     = 1000;
 
-                $category = AutomationExtBlockTypes::LIST_SUBSCRIPTION ?
+                $category = AutomationExtCanvasBlockTypes::LIST_SUBSCRIPTION ?
                     CustomerActionLog::CATEGORY_LISTS_SUBSCRIBERS_CREATED :
                     CustomerActionLog::CATEGORY_LISTS_SUBSCRIBERS_UNSUBSCRIBED;
 
@@ -327,7 +327,7 @@ class AutomationExtBlockGroupTrigger
                 $subscribers = CustomerActionLog::model()->findAll($criteria);
                 break;
 
-            case AutomationExtBlockTypes::SUBSCRIBER_ADDED_DATE:
+            case AutomationExtCanvasBlockTypes::SUBSCRIBER_ADDED_DATE:
 
                 $criteria = new CDbCriteria();
                 $criteria->select    = 'subscriber_id, list_id';
@@ -338,7 +338,7 @@ class AutomationExtBlockGroupTrigger
                 $subscribers = ListSubscriber::model()->findAll($criteria);
                 break;
 
-            case AutomationExtBlockTypes::OPEN_EMAIL:
+            case AutomationExtCanvasBlockTypes::OPEN_EMAIL:
 
                 $criteria = new CDbCriteria();
                 $criteria->select    = 'DISTINCT(subscriber_id) as subscriber_id, campaign_id';
@@ -350,7 +350,7 @@ class AutomationExtBlockGroupTrigger
                 $subscribers = CampaignTrackOpen::model()->findAll($criteria);
                 break;
 
-            case AutomationExtBlockTypes::CLICK_URL:
+            case AutomationExtCanvasBlockTypes::CLICK_URL:
 
                 $criteria = new CDbCriteria();
                 $criteria->select    = 'DISTINCT(subscriber_id) as subscriber_id, url_id';
@@ -362,7 +362,7 @@ class AutomationExtBlockGroupTrigger
                 $subscribers = CampaignTrackUrl::model()->findAll($criteria);
                 break;
 
-            case AutomationExtBlockTypes::REPLY_EMAIL:
+            case AutomationExtCanvasBlockTypes::REPLY_EMAIL:
 
                 if (!class_exists('ReplyTrackerExtLogModel'))
                     throw new Exception("Reply Tracker is required for this trigger", 1);
@@ -378,13 +378,13 @@ class AutomationExtBlockGroupTrigger
                 $subscribers = ReplyTrackerExtLogModel::model()->findAll($criteria);
 
                 break;
-            case AutomationExtBlockTypes::WEBHOOK:
+            case AutomationExtCanvasBlockTypes::WEBHOOK:
                 # code...
                 break;
-            case AutomationExtBlockTypes::SPECIFIC_DATE:
+            case AutomationExtCanvasBlockTypes::SPECIFIC_DATE:
                 # code...
                 break;
-            case AutomationExtBlockTypes::INTERVAL:
+            case AutomationExtCanvasBlockTypes::INTERVAL:
                 # code...
                 break;
 

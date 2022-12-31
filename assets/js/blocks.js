@@ -58,7 +58,9 @@ const BLOCK_TYPES = {
 	REPLY_EMAIL: "reply-email",
 	WAIT: "wait",
 	SEND_EMAIL: "send-email",
+	SEND_CAMPAIGN: "send-campaign",
 	RUN_CAMPAIGN: "run-campaign",
+    OTHER_CAMPAIGN_ACTION: "other-campaign-action",
 	MOVE_SUBSCRIBER: "move-subscriber",
 	COPY_SUBSCRIBER: "copy-subscriber",
 	UPDATE_SUBSCRIBER: "update-subscriber",
@@ -258,14 +260,39 @@ const blockList = Object.freeze([
 				key: BLOCK_TYPES.SEND_EMAIL,
 				title: "Send an email",
 				description:
-					"Send a campaign/autoresponder email content to only the current subscriber.",
+					"Send a campaign/autoresponder email content to only the current subscriber or an email address as transactional email.",
+				summary: "to the subscriber/email: $email - $campaign",
+				icon: ASSETS_PATH + "/images/send-email.svg",
+				//components: ["campaign-list"],
+				components: [
+					{
+						"campaign-list": {
+							label: "Select template",
+							help: "Send one time email to the subscriber using template/content of the selected campaign.",
+						},
+					},
+					{
+						input: {
+							name: "email",
+							type: "email",
+							label: "Email",
+							help: "Leave blank to send email to the current active subscriber.",
+						},
+					},
+				],
+			},
+			{
+				key: BLOCK_TYPES.SEND_CAMPAIGN,
+				title: "Send campaign",
+				description:
+					"Add the current subscriber to a campaign/autoresponder and send campaign to the subscriber.",
 				summary: "to the subscriber - $campaign",
 				icon: ASSETS_PATH + "/images/send-email.svg",
 				//components: ["campaign-list"],
 				components: [
 					{
 						"campaign-list": {
-							help: "Send one time email to the subscriber using template/content of the selected campaign.",
+							help: "Will copy the subscriber into the campaign list (if not exist) and attend to send the subscriber the campaign (if not already sent).",
 						},
 					},
 				],
@@ -274,14 +301,33 @@ const blockList = Object.freeze([
 				key: BLOCK_TYPES.RUN_CAMPAIGN,
 				title: "Run a campaign",
 				description:
-					"Run a campaign to all the campaign list subscribers.",
+					"Start campaign / Run a campaign to all the campaign list subscribers.",
 				summary: "Start/Run $campaign",
 				icon: ASSETS_PATH + "/images/send-campaign.svg",
 				components: [
 					{
 						"campaign-list": {
-							help: "Will run the draft campaign.",
-							global_list_key: "regular_draft_campaigns",
+							help: "Will run the draft or any editable campaign.",
+							global_list_key: "regular_campaigns",
+						},
+					},
+				],
+			},
+			{
+				key: BLOCK_TYPES.OTHER_CAMPAIGN_ACTION,
+				title: "Other campaign actions",
+				description:
+					"Copy campaign or update campaign status(uncontrolled)",
+				icon: ASSETS_PATH + "/images/send-campaign.svg",
+				summary: "$action - $campaign",
+				components: [
+					"campaign-list",
+					{
+						list: {
+							label: "Select an action to run",
+							name: "action",
+							global_list_key: "campaign_actions", //update items store global list
+							items: [{label: "Pause campaign", key: "pause"}],
 						},
 					},
 				],

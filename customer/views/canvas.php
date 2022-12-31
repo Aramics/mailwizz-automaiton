@@ -59,17 +59,16 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
      */
     const AUTOMATION_DETAILS = <?= json_encode($automation->attributes) ?>;
     const AUTOMATION_SAVE_URL = window.location.href;
-    const MAIL_LISTS_FETCH_URL =
-        "<?= $this->createUrl('automations/lists', ['id' => $automation->automation_id]); ?>";
-    const SUBSCRIBER_ACTIONS_FETCH_URL =
-        "<?= $this->createUrl('automations/subscriber_actions', ['id' => $automation->automation_id]); ?>";
-    const CAMPAIGNS_FETCH_URL =
-        "<?= $this->createUrl('automations/campaigns', ['id' => $automation->automation_id]); ?>";
-    const CAMPAIGN_TEMPLATE_URLS_FETCH_URL =
-        "<?= $this->createUrl('automations/campaign_urls', ['id' => $automation->automation_id]); ?>";
+    const GLOBAL_LIST_URLS = {
+        MAIL_LISTS_FETCH_URL: "<?= $this->createUrl('automations/lists', ['id' => $automation->automation_id]); ?>",
+        CAMPAIGNS_FETCH_URL: "<?= $this->createUrl('automations/campaigns', ['id' => $automation->automation_id]); ?>",
+        CAMPAIGN_TEMPLATE_URLS_FETCH_URL: "<?= $this->createUrl('automations/campaign_urls', ['id' => $automation->automation_id]); ?>",
+        SUBSCRIBER_ACTIONS_FETCH_URL: "<?= $this->createUrl('automations/subscriber_actions', ['id' => $automation->automation_id]); ?>",
+        CAMPAIGN_ACTIONS_FETCH_URL: "<?= $this->createUrl('automations/campaign_actions', ['id' => $automation->automation_id]); ?>",
+    }
 
-    const BLOCK_TYPES = <?= AutomationExtBlockTypes::getConstantsJson() ?>;
-    const BLOCK_GROUPS = <?= AutomationExtBlockGroups::getConstantsJson() ?>;
+    const BLOCK_TYPES = <?= AutomationExtCanvasBlockTypes::getConstantsJson() ?>;
+    const BLOCK_GROUPS = <?= AutomationExtCanvasBlockGroups::getConstantsJson() ?>;
     </script>
 
 
@@ -302,6 +301,9 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
                                 <input :type="type" :value="value" x-bind:title="value" :name="name"
                                     :disabled="disabled" :readonly="readonly" />
                             </label>
+                            <template x-if="typeof help !== 'undefined'">
+                                <div class="text-muted mt-10"><small x-text="help"></small></div>
+                            </template>
                         </div>
                     </template>
 
