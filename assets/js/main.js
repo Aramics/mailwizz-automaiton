@@ -678,7 +678,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		if (navigator.clipboard) {
 			navigator.clipboard.writeText(textArea.value).then(
 				function () {
-					notify("Copied!");
+					notify("Copied!", "success");
 				},
 				function (err) {
 					notify("Could not copy text: " + err.message, "error");
@@ -690,7 +690,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			try {
 				if (document.execCommand("copy")) {
-					notify("Copied!");
+					notify("Copied!", "success");
 				} else {
 					throw new Error("Error copying text");
 				}
@@ -722,7 +722,14 @@ document.addEventListener("DOMContentLoaded", function () {
 	}
 
 	window.notify = (note, type = "error") => {
-		console.log(note, type);
+		// Create an instance of Notyf
+		if (!window.notyf)
+			window.notyf = new Notyf({
+				position: {x: "center", y: "top"},
+				duration: 5000,
+			});
+
+		window.notyf[type == "success" ? "success" : "error"](note);
 	};
 
 	/////////////////////// General Helpers //////////////////

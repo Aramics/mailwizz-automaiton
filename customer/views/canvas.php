@@ -406,7 +406,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
 </body>
 
 <!-- vendor -->
-<link href="<?= $assets_dir; ?>/vendor/awesome-notifications/style.css" rel="stylesheet" type="text/css">
-<script src="<?= $assets_dir; ?>/vendor/awesome-notifications/index.var.js"></script>
+<link href="<?= $assets_dir; ?>/vendor/notyf/notyf.min.css" rel="stylesheet" type="text/css">
+<script src="<?= $assets_dir; ?>/vendor/notyf/notyf.min.js"></script>
 
 </html>
