@@ -1,15 +1,14 @@
 <?php defined('MW_PATH') || exit('No direct script access allowed');
 
 /**
- * Controller file for settings.
+ * Controller file for automation ext admin settings.
  */
-
 class AutomationExtBackendSettingsController extends Controller
 {
     // the extension instance
     public $extension;
 
-    // move the view path
+    // return the view path
     public function getViewPath()
     {
         return Yii::getPathOfAlias('ext-automation.backend.views.settings');

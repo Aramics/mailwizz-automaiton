@@ -3,12 +3,17 @@
 defined('MW_PATH') || exit('No direct script access allowed');
 
 /**
- * This class describe a Canvas block.
+ * This class describes an automation canvas block.
  */
 class AutomationExtCanvasBlock
 {
     public $id;
 
+    /**
+     * Constructs a new instance.
+     *
+     * @param      object  $block  The block json object
+     */
     public function __construct(object $block)
     {
         foreach ($block as $key => $value) $this->{$key} = $value;

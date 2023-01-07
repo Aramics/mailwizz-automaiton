@@ -2,6 +2,9 @@
 
 defined('MW_PATH') || exit('No direct script access allowed');
 
+/**
+ * This class describes automation extent canvas block types.
+ */
 class AutomationExtCanvasBlockTypes extends AutomationExtReflection
 {
     const LIST_SUBSCRIPTION =  "list-subscription"; //trigger

@@ -2,7 +2,7 @@
 defined('MW_PATH') || exit('No direct script access allowed');
 
 /**
- * 
+ * This class describes an automation canvas block group logic. Run all logic blocks
  */
 class AutomationExtCanvasBlockGroupLogic extends AutomationExtCanvasBlockGroupAction
 {

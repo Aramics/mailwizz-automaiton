@@ -1,8 +1,9 @@
 <?php
 defined('MW_PATH') || exit('No direct script access allowed');
 
+
 /**
- * This is the class that run all blocks in canvas actions group.
+ * This class describes an automation canvas block group action for running all action blocks.
  */
 class AutomationExtCanvasBlockGroupAction
 {

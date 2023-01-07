@@ -151,7 +151,7 @@ class AutomationExtCommand extends ConsoleCommand
      */
     protected function processWithoutPcntl()
     {
-        // get all automations
+        // get all active automations
         $automations = AutomationExtModel::model()->findAll(array(
             'condition' => 't.status = :status',
             'params'    => array(':status' => AutomationExtModel::STATUS_ACTIVE),

@@ -1,27 +1,23 @@
 <?php
-
 defined('MW_PATH') || exit('No direct script access allowed');
 
 /**
- * This is the helper class for automation model canvas data management.
- */
-
-/**
- 
+ * This class describes an automation canvas.
  */
 class AutomationExtCanvas
 {
+    
     /**
      * Automation model for the Canvas
-     *
+     * 
      * @var AutomationExtModel
      */
     public $automation;
 
-    //a canvas is expected to look like this:
     /**
+     * DOM cavas object.
+     * DOM canvas is expected to look like this:
      * {
-     *    "blockarr": [],
      *    "blocks": [
      *        {
      *            "id": 1,
@@ -32,16 +28,11 @@ class AutomationExtCanvas
      *                "value": "1"
      *                }
      *            ],
-     *            "attr": [
-     *                {
-     *                "id": "block-id",
-     *                "class": "block-class"
-     *                }
-     *            ]
+     *            ...
      *        }
      *    ]
-     * ...
-     * }
+     *    ...
+     *  }
      **/
     private $canvas;
 
@@ -60,26 +51,47 @@ class AutomationExtCanvas
      */
     private $blockIdIndexMap = [];
 
+
+    /**
+     * Control debug message logging.
+     *
+     * @var        bool
+     */
     public $verbose = true;
 
 
-    public function __construct(AutomationExtModel $automation, bool $validate = true)
+    /**
+     * Constructs a new canvas instance.
+     *
+     * @param      AutomationExtModel  $automation      The automation
+     *
+     * @throws     Exception           Invalid canvas structure
+     *
+     * @return     self                
+     */
+    public function __construct(AutomationExtModel $automation)
     {
 
         $this->automation = $automation;
         $this->canvas = (object)json_decode($automation->canvas_data);
 
-        if ($validate) {
+        
             //check and find canvas
             $valid = $this->init() == true;
             if ($valid !== true) {
+
                 throw new Exception($valid, 1);
             }
-        }
-
+        
         return $this;
     }
 
+
+    /**
+     * Debug message logging
+     *
+     * @param      string  $message  The message
+     */
     public function debug($message)
     {
         if ($this->verbose)
@@ -87,9 +99,10 @@ class AutomationExtCanvas
     }
 
     /**
-     * Check if ccanvas and its blocks if valid and initation of member is fine.
+     * Initializes the canvas object.
+     * Check if canvas and its blocks are valid and also build the blocks property.
      *
-     * @return string|true
+     * @return     bool|string  True if fine else error string
      */
     public function init()
     {
@@ -143,7 +156,13 @@ class AutomationExtCanvas
         dd($tree);
     }
 
-    public function tree()
+
+    /**
+     * Builds the canvas tree.
+     *
+     * @return     integer[]  The tree of block chain.
+     */
+    public function buildTree()
     {
         $trigger = $this->getTriggerBlock();
         //ensure trigger is not a tree
@@ -151,6 +170,16 @@ class AutomationExtCanvas
         return $node;
     }
 
+
+    /**
+     * Builds a node.
+     *
+     * @param      AutomationExtCanvasBlock  $block       The block
+     * @param      array                     $prevNode    The previous node (parent node)
+     * @param      bool                      $namedIndex  If to use named index or not (named index tree helps with debug)
+     *
+     * @return     integer[]                     The node.
+     */
     private function buildNode(AutomationExtCanvasBlock $block, array $prevNode, bool $namedIndex = false)
     {
         $children = $this->getBlockChildren($block);
@@ -176,17 +205,33 @@ class AutomationExtCanvas
     }
 
 
-    private function getBlockChildren(object $block)
+    /**
+     * Gets the block children.
+     *
+     * @param      AutomationExtCanvasBlock  $block  The block
+     *
+     * @return     AutomationExtCanvasBlock[]   The block children.
+     */
+    private function getBlockChildren(AutomationExtCanvasBlock $block)
     {
         $c = [];
         foreach ($this->getBlocks() as $b) {
-            if ($b->parent == $block->id)
+            if ($b->parent == $block->getId())
                 $c[] = $b->id;
         }
         return $c;
     }
 
-    private function runNode($node, $params)
+
+    /**
+     * Run a canvas node
+     *
+     * @param      array  $node    The node
+     * @param      array  $params  The parameters
+     * 
+     * @return     void
+     */
+    private function runNode(array $node, array $params)
     {
         $node_key = array_keys($node);
 
@@ -204,7 +249,18 @@ class AutomationExtCanvas
         }
     }
 
-    private function runBlock($blockId, $params, $hasSiblings = false)
+    /**
+     * Run a block.
+     *
+     * @param      int        $blockId      The block identifier
+     * @param      array      $params       The parameters
+     * @param      bool       $hasSiblings  Indicates if the block as node siblings
+     *
+     * @throws     Exception  unkown block error or interna exception
+     *
+     * @return     bool       True if block run successfully. False stop the block node from running.
+     */
+    private function runBlock(int $blockId, array $params, bool $hasSiblings = false)
     {
 
         $block = $this->getBlockById($blockId);
@@ -266,21 +322,46 @@ class AutomationExtCanvas
     }
 
 
+    /**
+     * Gets the trigger block.
+     * First block of the canvas must be the trigger
+     *
+     * @return     AutomationExtCanvasBlock  The trigger block.
+     */
     public function getTriggerBlock()
     {
-        return $this->blocks[0]; //first block must be the trigger
+        return $this->blocks[0];
     }
 
+    /**
+     * Gets the blocks.
+     *
+     * @return     AutomationExtCanvasBlock[]  The blocks.
+     */
     public function getBlocks()
     {
         return $this->blocks;
     }
 
-    public function getBlockIndexById($blockId)
+    /**
+     * Gets the block index by identifier.
+     *
+     * @param      integer  $blockId  The block identifier
+     *
+     * @return     AutomationExtCanvasBlock|null  The block object.
+     */
+    public function getBlockIndexById(int $blockId)
     {
         return $this->blockIdIndexMap[$blockId];
     }
 
+    /**
+     * Gets the block by identifier.
+     *
+     * @param      int     $blockId  The block identifier
+     *
+     * @return     AutomationExtCanvasBlock|null  The block by identifier.
+     */
     public function getBlockById(int $blockId)
     {
         $index = $this->getBlockIndexById($blockId);
@@ -291,10 +372,10 @@ class AutomationExtCanvas
     /**
      * Get parent block of a block
      *
-     * @param object $block
-     * @return object|null
+     * @param AutomationExtCanvasBlock $block
+     * @return AutomationExtCanvasBlock|null
      */
-    public function getBlockParent(object $block)
+    public function getBlockParent(AutomationExtCanvasBlock $block)
     {
 
         $parentId = (int)$block->parent; //index
@@ -312,6 +393,14 @@ class AutomationExtCanvas
      * @param AutomationExtCanvasBlock $block
      * @param AutomationExtCanvasBlock|null $parent . The parent block to the current block. NULL for triggers
      * @return string|true
+     */
+    /**
+     * Validate canvas block
+     *
+     * @param      AutomationExtCanvasBlock  $block   The block
+     * @param      AutomationExtCanvasBlock  $parent  The parent block
+     *
+     * @return     bool|string                      Error string or true
      */
     public function validateBlock(AutomationExtCanvasBlock $block, AutomationExtCanvasBlock $parent = null)
     {

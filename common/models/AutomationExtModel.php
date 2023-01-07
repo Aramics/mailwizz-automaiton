@@ -8,11 +8,13 @@
  * @property integer $customer_id
  * @property string $title
  * @property string $trigger
+ * @property string $trigger_value
  * @property string $locked
  * @property string $canvas_data
  * @property string $status
  * @property string $date_added
  * @property string $last_updated
+ * @property string $last_run
  *
  * The followings are the available model relations:
  * @property Customer $customer
@@ -24,9 +26,25 @@ class AutomationExtModel extends ActiveRecord
      * Staus flags
      */
     const STATUS_DRAFT = 'draft';
-    const STATUS_STOPED = 'stopped';
-    const STATUS_COMPLETED = 'completed';
     const STATUS_CRON_RUNNING = 'cron_running';
+    const STATUS_ACTIVE = 'active';
+    const STATUS_DISABLED = 'disabled';
+    const STATUS_STOPPED = 'stopped';
+
+    /**
+     * @inheritDoc
+     */
+    public function getStatusesList(): array
+    {
+        return [
+            self::STATUS_DRAFT       => ucfirst(t('app', self::STATUS_DRAFT)),
+            self::STATUS_CRON_RUNNING   => ucfirst(t('app', self::STATUS_CRON_RUNNING)),
+            self::STATUS_ACTIVE         => ucfirst(t('app', self::STATUS_ACTIVE)),
+            self::STATUS_DISABLED       => ucfirst(t('app', self::STATUS_DISABLED)),
+            self::STATUS_STOPPED       => ucfirst(t('app', self::STATUS_STOPPED)),
+        ];
+    }
+
     /**
      * @inheritdoc
      */
@@ -43,6 +61,7 @@ class AutomationExtModel extends ActiveRecord
         $rules = array(
             array('title', 'required'),
             array('locked', 'in', 'range' => array_keys($this->getYesNoOptions())),
+            array('title, trigger, status, customer_id', 'safe', 'on' => 'search'),
         );
 
         return $rules;
@@ -106,7 +125,14 @@ class AutomationExtModel extends ActiveRecord
 
         $criteria->compare('t.title', $this->title, true);
         $criteria->compare('t.trigger', $this->trigger, true);
-        $criteria->compare('t.status', $this->status);
+
+        if (is_array($this->status)) {
+            $criteria->addInCondition('t.status', $this->status);
+        } elseif (is_string($this->status)) {
+            $criteria->compare('t.status', $this->status);
+        } else {
+            $criteria->compare('t.status', $this->status);
+        }
 
         $criteria->order = 't.last_updated ASC';
 
@@ -162,91 +188,6 @@ class AutomationExtModel extends ActiveRecord
         return $this->save();
     }
 
-    public function dateInUserTimeZone($date, $format = 'H:i:s')
-    {
-        $customer = $this->customer;
-        $sourceTimeZone         = new DateTimeZone(app()->getTimeZone());
-        $destinationTimeZone    = new DateTimeZone($customer->timezone);
-
-        if ($date) {
-            $dateTime = new DateTime((string)$date, $sourceTimeZone);
-            $dateTime->setTimezone($destinationTimeZone);
-            $date = (string)$dateTime->format($format);
-        }
-
-        return $date;
-    }
-
-
-    /**
-     * we use this method to find subscriber by email address and list id
-     * @param $list_id (integer), $email (string)
-     *
-     * @return object subscriber
-     */
-    public function findSubscriber($list_id, $email)
-    {
-        $criteria = new CDbCriteria();
-        $criteria->compare('t.email', $email);
-        $criteria->compare('t.list_id', $list_id);
-        $subscriber = ListSubscriber::model()->find($criteria);
-
-        return $subscriber;
-    }
-
-    /**
-     * This method is used send mail to subscriber
-     * when action send-email is activated
-     *
-     * @param $list_id (integer), $email (string)
-     *
-     * @return (object)
-     */
-    public function sendEmail($campaign, $subscriber, $action)
-    {
-        $dsParams = array('useFor' => DeliveryServer::USE_FOR_CAMPAIGNS);
-        $list = $campaign->list;
-
-        if (!($automation = DeliveryServer::pickServer(0, $campaign, $dsParams))) {
-            if (!($automation = DeliveryServer::pickServer(0, $list))) {
-                return false;
-            }
-        }
-
-
-        $content = $action['content'];
-        $subject = $action['subject'];
-
-        $searchReplace = CampaignHelper::getCommonTagsSearchReplace($content, $campaign);
-
-        $content = str_replace(array_keys($searchReplace), array_values($searchReplace), $content);
-        $subject = str_replace(array_keys($searchReplace), array_values($searchReplace), $subject);
-
-        // 1.5.3
-        if (CampaignHelper::isTemplateEngineEnabled()) {
-            $content = CampaignHelper::parseByTemplateEngine($content, $searchReplace);
-            $subject = CampaignHelper::parseByTemplateEngine($subject, $searchReplace);
-        }
-
-        $params = array(
-            'to'        => $subscriber->email,
-            'fromName'  => $list->default->from_name,
-            'subject'   => $subject,
-            'body'      => $content,
-        );
-
-        $sent = false;
-        for ($i = 0; $i < 3; ++$i) {
-            if ($sent = $automation->setDeliveryFor(DeliveryServer::DELIVERY_FOR_LIST)->setDeliveryObject($list)->sendEmail($params)) {
-                break;
-            }
-            if (!($automation = DeliveryServer::pickServer($automation->server_id, $list))) {
-                break;
-            }
-        }
-
-        return $sent;
-    }
 
     /**
      * @return BounceServer|null
@@ -307,23 +248,11 @@ class AutomationExtModel extends ActiveRecord
     /**
      * @return bool
      */
-    public function getIsStopped(): bool
+    public function getIsDisabled(): bool
     {
-        return $this->getStatusIs(self::STATUS_STOPED);
+        return $this->getStatusIs(self::STATUS_DISABLED);
     }
 
-    /**
-     * @return bool
-     * @throws Exception
-     */
-    public function stop()
-    {
-        if (!$this->getIsActive() && !$this->getStatusIs(self::STATUS_CRON_RUNNING)) {
-            return false;
-        }
-
-        return $this->saveStatus(self::STATUS_STOPED);
-    }
 
     /**
      * @return bool
@@ -333,15 +262,13 @@ class AutomationExtModel extends ActiveRecord
         return $this->getStatusIs(self::STATUS_DRAFT);
     }
 
-
     /**
      * @return bool
      */
-    public function getCanBeUpdated(): bool
+    public function getIsStopped(): bool
     {
-        return !in_array($this->status, [self::STATUS_CRON_RUNNING, self::STATUS_STOPED]);
+        return $this->getStatusIs(self::STATUS_STOPPED);
     }
-
 
     /**
      * @return bool
@@ -349,6 +276,46 @@ class AutomationExtModel extends ActiveRecord
     public function getIsLocked(): bool
     {
         return (string)$this->locked === self::TEXT_YES;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getCanBeDeleted(): bool
+    {
+        return $this->getCanBeUpdated() && !$this->getIsLocked();
+    }
+
+    /**
+     * @return bool
+     */
+    public function getCanBeUpdated(): bool
+    {
+        return !in_array($this->status, [self::STATUS_CRON_RUNNING]);
+    }
+
+    /**
+     * @return bool
+     * @throws Exception
+     */
+    public function enable(): bool
+    {
+        if (!$this->getIsDisabled() && !$this->getIsDraft()) {
+            return false;
+        }
+        return $this->saveStatus(self::STATUS_ACTIVE);
+    }
+
+    /**
+     * @return bool
+     * @throws Exception
+     */
+    public function disable()
+    {
+        if (!$this->getIsActive()) {
+            return false;
+        }
+        return $this->saveStatus(self::STATUS_DISABLED);
     }
 
 

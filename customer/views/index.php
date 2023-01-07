@@ -29,7 +29,10 @@ if ($viewCollection->renderContent) {
     /**
      * @since 1.3.9.2 MailWizz EMA
      */
-    $itemsCount = ReplyTrackerExtLogModel::model()->count(); ?>
+    $itemsCount = (int)AutomationExtModel::model()->countByAttributes([
+        'customer_id' => (int)customer()->getId(),
+        'status'      => array_keys($automation->getStatusesList()),
+    ]); ?>
 
 <div class="box box-primary borderless">
     <div class="box-header">
@@ -213,7 +216,7 @@ if ($viewCollection->renderContent) {
                                         'url'       => 'Yii::app()->createUrl("automations/update", array("id" => $data->automation_id))',
                                         'imageUrl'  => null,
                                         'options'   => array('title' => Yii::t('app', 'Update'), 'class' => 'btn btn-primary btn-flat'),
-                                        'visible'   => 'AccessHelper::hasRouteAccess("automations/update")',
+                                        'visible'   => 'AccessHelper::hasRouteAccess("automations/update") && $data->getCanBeUpdated()',
                                     ),
                                     'copy' => array(
                                         'label'     => IconHelper::make('copy'),
@@ -226,8 +229,8 @@ if ($viewCollection->renderContent) {
                                         'label'     => IconHelper::make('glyphicon-open'),
                                         'url'       => 'Yii::app()->createUrl("automations/enable", array("id" => $data->automation_id))',
                                         'imageUrl'  => null,
-                                        'options'   => array('title' => Yii::t('app', 'Enable'), 'class' => 'btn btn-primary btn-flat enable-automation'),
-                                        'visible'   => 'AccessHelper::hasRouteAccess("automations/enable") && $data->getIsDisabled()',
+                                        'options'   => array('title' => Yii::t('app', 'Activate'), 'class' => 'btn btn-primary btn-flat enable-automation'),
+                                        'visible'   => 'AccessHelper::hasRouteAccess("automations/enable") && ($data->getIsDisabled() || $data->getIsDraft())',
                                     ),
                                     'disable' => array(
                                         'label'     => IconHelper::make('glyphicon-save'),
@@ -241,7 +244,7 @@ if ($viewCollection->renderContent) {
                                         'url'       => 'Yii::app()->createUrl("automations/delete", array("id" => $data->automation_id))',
                                         'imageUrl'  => null,
                                         'options'   => array('title' => Yii::t('app', 'Delete'), 'class' => 'btn btn-danger btn-flat delete'),
-                                        'visible'   => 'AccessHelper::hasRouteAccess("automations/delete")',
+                                        'visible'   => 'AccessHelper::hasRouteAccess("automations/delete") && $data->getCanBeDeleted()',
                                     ),
                                 ),
                                 'headerHtmlOptions' => array('style' => 'text-align: right'),

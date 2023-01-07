@@ -1,11 +1,10 @@
 <?php
-
 defined('MW_PATH') || exit('No direct script access allowed');
 
-/**
- * This is the helper class for automation model canvas data management.
- */
 
+/**
+ * This class describes an automation canvas block group trigger. Listen and execute trigger blocks
+ */
 class AutomationExtCanvasBlockGroupTrigger
 {
 

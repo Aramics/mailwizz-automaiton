@@ -39,8 +39,9 @@ class AutomationExtCustomerController extends Controller
     {
         $customer = Yii::app()->customer->getModel();
         $request = Yii::app()->request;
+
         $automation  = new AutomationExtModel('search');
-        //$automation->unsetAttributes();
+        $automation->unsetAttributes();
 
         $automation->attributes = (array)$request->getQuery($automation->modelName, array());
         $automation->customer_id = (int)$customer->customer_id;
@@ -204,7 +205,7 @@ class AutomationExtCustomerController extends Controller
         }
 
 
-        //automation cant be updated cron_running or hidden status
+        //automation cant be updated cron_running or stopped
         if (!$automation->getCanBeUpdated()) {
 
             $message = $this->extension->t('Automation can not be updated at this time');
@@ -472,20 +473,27 @@ class AutomationExtCustomerController extends Controller
         if ($automation->getIsLocked()) {
             $notify->addWarning($this->extension->t('This automation is locked, you cannot update, enable, disable, copy or delete it!'));
             if (!$request->isAjaxRequest) {
-                $this->redirect($request->getPost('returnUrl', array('automations/inbounds')));
+                $this->redirect($request->getPost('returnUrl', array('automations/index')));
             }
             Yii::app()->end();
         }
 
-        if ($automation->getIsDisabled()) {
-            $automation->enable();
+        if ($automation->getIsStopped()) {
+            $notify->addWarning($this->extension->t('This automation has been stopped!'));
+            if (!$request->isAjaxRequest) {
+                $this->redirect($request->getPost('returnUrl', array('automations')));
+            }
+            Yii::app()->end();
+        }
+
+        if ($automation->enable()) {
             $notify->addSuccess($this->extension->t('Your automation has been successfully enabled!'));
         } else {
-            $notify->addError($this->extension->t('The automation must be disabled in order to enable it!'));
+            $notify->addError($this->extension->t('The automation must be disabled or draft in order to enable it!'));
         }
 
         if (!$request->isAjaxRequest) {
-            $this->redirect($request->getPost('returnUrl', array('automations/inbounds')));
+            $this->redirect($request->getPost('returnUrl', array('automations/index')));
         }
     }
 
@@ -509,7 +517,15 @@ class AutomationExtCustomerController extends Controller
         if ($automation->getIsLocked()) {
             $notify->addWarning($this->extension->t('This automation is locked, you cannot update, enable, disable, copy or delete it!'));
             if (!$request->isAjaxRequest) {
-                $this->redirect($request->getPost('returnUrl', array('automations/inbounds')));
+                $this->redirect($request->getPost('returnUrl', array('automations')));
+            }
+            Yii::app()->end();
+        }
+
+        if ($automation->getIsStopped()) {
+            $notify->addWarning($this->extension->t('This automation has been stopped!'));
+            if (!$request->isAjaxRequest) {
+                $this->redirect($request->getPost('returnUrl', array('automations')));
             }
             Yii::app()->end();
         }
@@ -522,7 +538,7 @@ class AutomationExtCustomerController extends Controller
         }
 
         if (!$request->isAjaxRequest) {
-            $this->redirect($request->getPost('returnUrl', array('automations/inbounds')));
+            $this->redirect($request->getPost('returnUrl', array('automations/index')));
         }
     }
 

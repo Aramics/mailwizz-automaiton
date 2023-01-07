@@ -43,6 +43,7 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
     <script src="<?= $assets_dir; ?>/js/flowy.min.js"></script>
     <script language="javascript" src="<?= $assets_dir; ?>/js/lz-string.min.js"></script>
 
+
     <!-- internal -->
     <script>
     //asset path for loading images and other static resources
@@ -403,5 +404,9 @@ $assets_dir = AssetsUrl::base('ext-automation', false, 'customer');
     </div>
 
 </body>
+
+<!-- vendor -->
+<link href="<?= $assets_dir; ?>/vendor/awesome-notifications/style.css" rel="stylesheet" type="text/css">
+<script src="<?= $assets_dir; ?>/vendor/awesome-notifications/index.var.js"></script>
 
 </html>
